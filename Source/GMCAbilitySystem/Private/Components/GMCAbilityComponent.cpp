@@ -937,17 +937,20 @@ void UGMC_AbilitySystemComponent::ServerHandlePredictedPendingEffect(float Delta
 
 void UGMC_AbilitySystemComponent::ClientHandlePendingEffect() {
 
-	// Handle our RPC effect operations. MoveCycle operations will be sent via RPC
-	// just like the Outer ones, but will be preserved in the movement history.
-	auto RPCOperations = QueuedEffectOperations.GetQueuedRPCOperations();
-	for (auto& Operation : RPCOperations) {
-		if (ShouldProcessEffectOperation(Operation, false))
-		{
-			ProcessEffectOperation(Operation);
-			QueuedEffectOperations.Acknowledge(Operation.GetOperationId());
-			QueuedEffectOperations.RemoveOperationById(Operation.GetOperationId());
-		}
-	}
+    // Handle our RPC effect operations. MoveCycle operations will be sent via RPC
+    // just like the Outer ones, but will be preserved in the movement history.
+    auto RPCOperations = QueuedEffectOperations.GetQueuedRPCOperations();
+    for (auto& Operation : RPCOperations) {
+        if (QueuedEffectOperations.IsAcknowledged(Operation.GetOperationId()))
+        {
+            ProcessEffectOperation(Operation);
+            QueuedEffectOperations.RemoveOperationById(Operation.GetOperationId());
+        }
+        if (ShouldProcessEffectOperation(Operation, false))
+        {
+            QueuedEffectOperations.Acknowledge(Operation.GetOperationId());
+        }
+    }
 }
 
 void UGMC_AbilitySystemComponent::ClientHandlePredictedPendingEffect()
