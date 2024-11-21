@@ -74,7 +74,7 @@ void UGMCAbilityEffect::StartEffect()
 	{
 		for (const FGMCAttributeModifier& Modifier : EffectData.Modifiers)
 		{
-			OwnerAbilityComponent->ApplyAbilityEffectModifier(Modifier, true);
+			OwnerAbilityComponent->ApplyAbilityEffectModifier(Modifier, true, false, SourceAbilityComponent);
 		}
 		EndEffect();
 		return;
@@ -86,7 +86,7 @@ void UGMCAbilityEffect::StartEffect()
 		EffectData.bNegateEffectAtEnd = true;
 		for (const FGMCAttributeModifier& Modifier : EffectData.Modifiers)
 		{
-			OwnerAbilityComponent->ApplyAbilityEffectModifier(Modifier, false);
+			OwnerAbilityComponent->ApplyAbilityEffectModifier(Modifier, false, false, SourceAbilityComponent);
 		}
 	}
 
@@ -201,7 +201,7 @@ void UGMCAbilityEffect::PeriodTick()
 	if (AttributeDynamicCondition()) {
 		for (const FGMCAttributeModifier& AttributeModifier : EffectData.Modifiers)
 		{
-			OwnerAbilityComponent->ApplyAbilityEffectModifier(AttributeModifier, true);
+			OwnerAbilityComponent->ApplyAbilityEffectModifier(AttributeModifier, true, false, SourceAbilityComponent);
 		}
 	}
 }
