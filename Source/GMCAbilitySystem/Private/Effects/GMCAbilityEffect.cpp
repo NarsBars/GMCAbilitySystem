@@ -128,7 +128,7 @@ void UGMCAbilityEffect::EndEffect()
 		}
 	}
 	
-	RemoveTagsFromOwner();
+	RemoveTagsFromOwner(EffectData.bPreserveGrantedTagsIfMultiple);
 	RemoveAbilitiesFromOwner();
 }
 
@@ -231,14 +231,22 @@ void UGMCAbilityEffect::AddTagsToOwner()
 
 void UGMCAbilityEffect::RemoveTagsFromOwner(bool bPreserveOnMultipleInstances)
 {
-
-	if (bPreserveOnMultipleInstances && EffectData.EffectTag.IsValid()) {
-		TArray<UGMCAbilityEffect*> ActiveEffect = OwnerAbilityComponent->GetActiveEffectsByTag(EffectData.EffectTag);
-		
-		if (ActiveEffect.Num() > 1) {
-			return;
+	if (bPreserveOnMultipleInstances)
+	{
+		if (EffectData.EffectTag.IsValid()) {
+			TArray<UGMCAbilityEffect*> ActiveEffect = OwnerAbilityComponent->GetActiveEffectsByTag(EffectData.EffectTag);
+			
+			if (ActiveEffect.Num() > 1) {
+				return;
+			}
+		}
+		else
+		{
+			UE_LOG(LogGMCAbilitySystem, Warning, TEXT("Effect Tag is not valid with PreserveMultipleInstances in UGMCAbilityEffect::RemoveTagsFromOwner"));
 		}
 	}
+
+
 	
 	for (const FGameplayTag Tag : EffectData.GrantedTags)
 	{
