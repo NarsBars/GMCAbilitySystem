@@ -1,5 +1,7 @@
 #pragma once
 
+#include "GameplayTags.h"
+#include "InstancedStruct.h"
 #include "GMASSyncedEvent.generated.h"
 
 UCLASS()
