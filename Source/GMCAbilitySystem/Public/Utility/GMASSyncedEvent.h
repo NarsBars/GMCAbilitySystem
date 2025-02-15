@@ -1,5 +1,8 @@
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GameplayTags.h"
+#include "StructUtils/InstancedStruct.h"
 #include "GMASSyncedEvent.generated.h"
 
 UCLASS()
