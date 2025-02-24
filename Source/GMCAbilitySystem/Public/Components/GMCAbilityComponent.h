@@ -567,7 +567,6 @@ private:
 
 	template <typename C, typename T>
 	bool ShouldProcessOperation(const TGMASBoundQueueOperation<C, T>& Operation, TGMASBoundQueue<C, T, false>& QueuedOperations, bool bIsServer = true) const;
-
 	
 	// Events	
 	virtual void ProcessOperation(const TGMASBoundQueueOperation<UGMASSyncedEvent, FGMASSyncedEventContainer>& Operation);
@@ -673,8 +672,7 @@ private:
 	void RemoveEffectHandle(int EffectHandle);
 	
 	UPROPERTY(BlueprintReadOnly, Category = "GMCAbilitySystem", meta=(AllowPrivateAccess="true"))
-
-	bool bInGMCTime = false;
+	bool bInAncillaryTick = false;
 
 	void ServerHandlePendingEffect(float DeltaTime);
 	void ServerHandlePredictedPendingEffect(float DeltaTime);

@@ -1926,15 +1926,8 @@ bool UGMC_AbilitySystemComponent::RemoveEffectByIdSafe(TArray<int> Ids, EGMCAbil
 				if (QueueType == EGMCAbilityEffectQueueType::ServerAuth)
 				{
 					// Send the operation over to our client via standard RPC.
-					ClientQueueEffectOperation(Operation);
+					ClientQueueOperation(Operation);
 				}
-			
-				if (QueueType == EGMCAbilityEffectQueueType::ServerAuth)
-				{
-					// Send the operation over to our client via standard RPC.
-					ClientQueueEffectOperation(Operation);
-				}
-			
 				return true;
 			}
 	}
