@@ -82,12 +82,6 @@ void UGMC_AbilitySystemComponent::BindReplicationData()
 	// We sort our attributes alphabetically by tag so that it's deterministic.
 	for (auto& AttributeForBind : BoundAttributes.Attributes)
 	{
-		GMCMovementComponent->BindSinglePrecisionFloat(AttributeForBind.BaseValue,
-			EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
-			EGMC_CombineMode::CombineIfUnchanged,
-			EGMC_SimulationMode::Periodic_Output,
-			EGMC_InterpolationFunction::TargetValue);
-		
 		GMCMovementComponent->BindSinglePrecisionFloat(AttributeForBind.Value,
 			EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
 			EGMC_CombineMode::CombineIfUnchanged,
@@ -113,13 +107,6 @@ void UGMC_AbilitySystemComponent::BindReplicationData()
 			EGMC_InterpolationFunction::TargetValue);
 	}
 	
-	// Sync'd Action Timer
-	GMCMovementComponent->BindDoublePrecisionFloat(ActionTimer,
-		EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
-		EGMC_CombineMode::CombineIfUnchanged,
-		EGMC_SimulationMode::None,
-		EGMC_InterpolationFunction::TargetValue);
-
 	// Granted Abilities
 	GMCMovementComponent->BindGameplayTagContainer(GrantedAbilityTags,
 		EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
@@ -538,7 +525,8 @@ bool UGMC_AbilitySystemComponent::IsServerOnly() const
 void UGMC_AbilitySystemComponent::GenPredictionTick(float DeltaTime)
 {
 	bJustTeleported = false;
-	ActionTimer += DeltaTime;
+	// ActionTimer += DeltaTime;
+	ActionTimer = GMCMovementComponent->GetMoveTimestamp();
 	
 	ApplyStartingEffects();
 	
@@ -1084,6 +1072,20 @@ bool UGMC_AbilitySystemComponent::CheckActivationTags(const UGMCAbility* Ability
 }
 
 
+void UGMC_AbilitySystemComponent::ClearAbilityMap()
+{
+	// For each AbilityMap in the map AbilityMap:
+	for (auto& AbilityMapData : AbilityMap)
+	{
+		if (GrantedAbilityTags.HasTag(AbilityMapData.Value.InputTag))
+		{
+			GrantedAbilityTags.RemoveTag(AbilityMapData.Value.InputTag);
+		}
+	}
+	
+	AbilityMap.Empty();
+}
+
 void UGMC_AbilitySystemComponent::InitializeAbilityMap(){
 	for (UGMCAbilityMapData* StartingAbilityMap : AbilityMaps)
 	{
@@ -1121,12 +1123,12 @@ void UGMC_AbilitySystemComponent::RemoveAbilityMapData(const FAbilityMapData& Ab
 	{
 		AbilityMap.Remove(AbilityMapData.InputTag);
 	}
+	
+	if (GrantedAbilityTags.HasTag(AbilityMapData.InputTag))
 	{
-		if (GrantedAbilityTags.HasTag(AbilityMapData.InputTag))
-		{
-			GrantedAbilityTags.RemoveTag(AbilityMapData.InputTag);
-		}
+		GrantedAbilityTags.RemoveTag(AbilityMapData.InputTag);
 	}
+	
 }
 
 void UGMC_AbilitySystemComponent::InitializeStartingAbilities()
@@ -1689,7 +1691,7 @@ bool UGMC_AbilitySystemComponent::ApplyAbilityEffect(TSubclassOf<UGMCAbilityEffe
 				return false;
 			}
 
-			if (QueueType == EGMCAbilityEffectQueueType::ServerAuthMove) Operation.Header.RPCGracePeriodSeconds = 5.f;
+			if (QueueType == EGMCAbilityEffectQueueType::ServerAuthMove) Operation.Header.RPCGracePeriodSeconds = Operation.Payload.ClientGraceTime;;
 
 			QueuedEffectOperations.QueuePreparedOperation(Operation, QueueType == EGMCAbilityEffectQueueType::ServerAuthMove);
 
@@ -1906,7 +1908,7 @@ bool UGMC_AbilitySystemComponent::RemoveEffectByIdSafe(TArray<int> Ids, EGMCAbil
 				if (!GMCMovementComponent->IsExecutingMove() && GetNetMode() != NM_Standalone && !bInAncillaryTick)
 				{
 					
-					ensureMsgf(false, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
+				ensureMsgf(false, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
 						*GetNetRoleAsString(GetOwnerRole()), *GetOwner()->GetName(), *GetEffectsNameAsString(GetEffectsByIds(Ids)));
 					UE_LOG(LogGMCAbilitySystem, Error, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
 						*GetNetRoleAsString(GetOwnerRole()), *GetOwner()->GetName(), *GetEffectsNameAsString(GetEffectsByIds(Ids)));

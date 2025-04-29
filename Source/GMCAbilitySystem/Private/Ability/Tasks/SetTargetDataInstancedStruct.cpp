@@ -11,7 +11,7 @@ UGMCAbilityTask_SetTargetDataInstancedStruct* UGMCAbilityTask_SetTargetDataInsta
 void UGMCAbilityTask_SetTargetDataInstancedStruct::Activate(){
 	Super::Activate();
 
-	if (AbilitySystemComponent->GetNetMode() != NM_DedicatedServer)
+	if (IsClientOrRemoteListenServerPawn())
 	{
 		ClientProgressTask();
 	}

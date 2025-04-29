@@ -11,7 +11,7 @@ UGMCAbilityTask_SetTargetDataTransform* UGMCAbilityTask_SetTargetDataTransform::
 void UGMCAbilityTask_SetTargetDataTransform::Activate(){
 	Super::Activate();
 
-	if (AbilitySystemComponent->GetNetMode() != NM_DedicatedServer)
+	if (IsClientOrRemoteListenServerPawn())
 	{
 		ClientProgressTask();
 	}

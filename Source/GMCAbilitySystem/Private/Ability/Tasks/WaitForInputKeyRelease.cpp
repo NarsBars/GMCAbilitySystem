@@ -5,17 +5,20 @@
 #include "Components/GMCAbilityComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-UGMCAbilityTask_WaitForInputKeyRelease* UGMCAbilityTask_WaitForInputKeyRelease::WaitForKeyRelease(UGMCAbility* OwningAbility, bool bCheckForReleaseDuringActivation)
+UGMCAbilityTask_WaitForInputKeyRelease* UGMCAbilityTask_WaitForInputKeyRelease::WaitForKeyRelease(UGMCAbility* OwningAbility, bool bCheckForReleaseDuringActivation, float MaxDuration)
 {
 	UGMCAbilityTask_WaitForInputKeyRelease* Task = NewAbilityTask<UGMCAbilityTask_WaitForInputKeyRelease>(OwningAbility);
 	Task->Ability = OwningAbility;
 	Task->bShouldCheckForReleaseDuringActivation = bCheckForReleaseDuringActivation;
+	Task->MaxDuration = MaxDuration;
 	return Task;
 }
 
 void UGMCAbilityTask_WaitForInputKeyRelease::Activate()
 {
 	Super::Activate();
+	
+	StartTime = AbilitySystemComponent->ActionTimer;
 
 	UEnhancedInputComponent* const InputComponent = GetEnhancedInputComponent();
 	
@@ -52,15 +55,22 @@ void UGMCAbilityTask_WaitForInputKeyRelease::Activate()
 	}
 }
 
+void UGMCAbilityTask_WaitForInputKeyRelease::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	Duration = AbilitySystemComponent->ActionTimer - StartTime;
+	OnTick.Broadcast(Duration);
+
+	if (MaxDuration > 0 && Duration >= MaxDuration)
+	{
+		ClientProgressTask();
+	}
+}
+
 void UGMCAbilityTask_WaitForInputKeyRelease::OnKeyReleased(const FInputActionValue& InputActionValue)
 {
 	// Unbind since we're done now.
 	ClientProgressTask();
-	if (UInputComponent* const InputComponent = GetValid(GetEnhancedInputComponent()))
-	{
-		InputComponent->RemoveActionBindingForHandle(InputBindingHandle);
-	}
-
 	InputBindingHandle = -1;
 }
 
@@ -80,7 +90,8 @@ UEnhancedInputComponent* UGMCAbilityTask_WaitForInputKeyRelease::GetEnhancedInpu
 void UGMCAbilityTask_WaitForInputKeyRelease::OnTaskCompleted()
 {
 	EndTask();
-	Completed.Broadcast();
+	Duration = AbilitySystemComponent->ActionTimer - StartTime;
+	Completed.Broadcast(Duration);
 	bTaskCompleted = true;
 }
 
@@ -108,6 +119,11 @@ void UGMCAbilityTask_WaitForInputKeyRelease::ProgressTask(FInstancedStruct& Task
 
 void UGMCAbilityTask_WaitForInputKeyRelease::ClientProgressTask()
 {
+	if (UInputComponent* const InputComponent = GetValid(GetEnhancedInputComponent()))
+	{
+		InputComponent->RemoveActionBindingForHandle(InputBindingHandle);
+	}
+	
 	FGMCAbilityTaskData TaskData;
 	TaskData.TaskType = EGMCAbilityTaskDataType::Progress;
 	TaskData.AbilityID = Ability->GetAbilityID();
