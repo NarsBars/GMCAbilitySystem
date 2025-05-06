@@ -16,6 +16,9 @@
 #include "GMCAbilityComponent.generated.h"
 
 
+class UNiagaraComponent;
+struct FFXSystemSpawnParameters;
+class UNiagaraSystem;
 class UGMCAbilityAnimInstance;
 class UGMCAbilityMapData;
 class UGMCAttributesData;
@@ -732,5 +735,25 @@ private:
 	void RPCClientEndEffect(int EffectID);
 
 	friend UGMCAbilityAnimInstance;
-		
+
+	// Networked FX
+
+	// Is this ASC locally controlled?
+	bool IsLocallyControlledPawnASC() const;
+
+	// Spawn a Niagara system at the given location
+	UFUNCTION(BlueprintCallable, Category="GMAS|FX")
+	UNiagaraComponent* SpawnParticleSystem(FFXSystemSpawnParameters SpawnParams, bool bIsClientPredicted = false);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MC_SpawnParticleSystem(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted = false);
+
+	// Spawn a Sound at the given location
+	UFUNCTION(BlueprintCallable, Category="GMAS|FX")
+	void SpawnSound(USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MC_SpawnSound(USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
+
+	
 };
