@@ -47,7 +47,7 @@ void UGMCAbilityTask_WaitForInputKeyPress::OnKeyPressed(const FInputActionValue&
 		InputComponent->RemoveActionBindingForHandle(InputBindingHandle);
 		InputBindingHandle = -1;
 	}
-
+	
 	ClientProgressTask();
 }
 
