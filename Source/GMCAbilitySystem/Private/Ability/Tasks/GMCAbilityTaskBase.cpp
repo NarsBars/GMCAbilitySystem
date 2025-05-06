@@ -30,6 +30,10 @@ void UGMCAbilityTaskBase::RegisterTask(UGMCAbilityTaskBase* Task)
 
 void UGMCAbilityTaskBase::Tick(float DeltaTime)
 {
+
+}
+
+void UGMCAbilityTaskBase::AncillaryTick(float DeltaTime){
 	// Locally controlled server pawns don't need to send heartbeats
 	if (AbilitySystemComponent->GMCMovementComponent->IsLocallyControlledServerPawn()) return;
 	
@@ -49,10 +53,6 @@ void UGMCAbilityTaskBase::Tick(float DeltaTime)
 		Ability->EndAbility();
 		EndTask();
 	}
-}
-
-void UGMCAbilityTaskBase::AncillaryTick(float DeltaTime){
-	
 }
 
 void UGMCAbilityTaskBase::ClientProgressTask()

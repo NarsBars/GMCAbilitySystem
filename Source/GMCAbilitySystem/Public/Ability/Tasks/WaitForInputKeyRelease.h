@@ -34,7 +34,7 @@ public:
 	//Overriding BP async action base
 	virtual void Activate() override;
 
-	virtual void Tick(float DeltaTime) override;
+	virtual void AncillaryTick(float DeltaTime) override;
 
 	UPROPERTY(BlueprintAssignable)
 	FGMCAbilityTaskWaitForInputKeyRelease Completed;

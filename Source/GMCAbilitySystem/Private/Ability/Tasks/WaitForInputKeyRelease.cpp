@@ -55,7 +55,7 @@ void UGMCAbilityTask_WaitForInputKeyRelease::Activate()
 	}
 }
 
-void UGMCAbilityTask_WaitForInputKeyRelease::Tick(float DeltaTime)
+void UGMCAbilityTask_WaitForInputKeyRelease::AncillaryTick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	if (bTaskCompleted) return;
