@@ -159,6 +159,8 @@ void UGMC_AbilitySystemComponent::GenAncillaryTick(float DeltaTime, bool bIsComb
 
 	
 	TickActiveCooldowns(DeltaTime);
+
+	SendTaskDataToActiveAbility(false);
 	TickAncillaryActiveAbilities(DeltaTime);
 
 	// Check if we have a valid operation
@@ -167,8 +169,6 @@ void UGMC_AbilitySystemComponent::GenAncillaryTick(float DeltaTime, bool bIsComb
 	{
 		ProcessAbilityOperation(Operation, false);
 	}
-
-	SendTaskDataToActiveAbility(false);
 	
 	ClearAbilityAndTaskData();
 	QueuedEffectOperations_ClientAuth.ClearCurrentOperation();
@@ -529,8 +529,10 @@ void UGMC_AbilitySystemComponent::GenPredictionTick(float DeltaTime)
 	ActionTimer = GMCMovementComponent->GetMoveTimestamp();
 	
 	ApplyStartingEffects();
-	
+
+	SendTaskDataToActiveAbility(true);
 	TickActiveAbilities(DeltaTime);
+	
 	TickActiveEffects(DeltaTime);
 	
 	// Abilities
@@ -550,7 +552,7 @@ void UGMC_AbilitySystemComponent::GenPredictionTick(float DeltaTime)
 
 	ServerHandlePredictedPendingEffect(DeltaTime);
 	
-	SendTaskDataToActiveAbility(true);
+	
 }
 
 void UGMC_AbilitySystemComponent::GenSimulationTick(float DeltaTime)
