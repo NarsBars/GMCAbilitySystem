@@ -42,6 +42,10 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FGMCAbilityTaskWaitForInputKeyRelease OnTick;
 
+	// Called when duration goes over MaxDuration
+	UPROPERTY(BlueprintAssignable)
+	FGMCAbilityTaskWaitForInputKeyRelease TimedOut;
+
 protected:
 
 	void OnKeyReleased(const FInputActionValue& InputActionValue);
@@ -61,5 +65,7 @@ private:
 	float StartTime;
 	float Duration;
 	double OldTime;
+
+	bool bTimedOut = false;
 	
 };
