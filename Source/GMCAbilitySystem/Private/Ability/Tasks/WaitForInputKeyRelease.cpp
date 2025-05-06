@@ -61,7 +61,7 @@ void UGMCAbilityTask_WaitForInputKeyRelease::Tick(float DeltaTime)
 	Duration = AbilitySystemComponent->ActionTimer - StartTime;
 	OnTick.Broadcast(Duration);
 
-	if (MaxDuration > 0 && Duration >= MaxDuration)
+	if (MaxDuration > 0 && Duration >= MaxDuration && !bTaskCompleted)
 	{
 		ClientProgressTask();
 	}
