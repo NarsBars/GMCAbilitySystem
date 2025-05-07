@@ -219,7 +219,7 @@ public:
 	int EndAbilitiesByClass(TSubclassOf<UGMCAbility> AbilityClass);
 	
 	UFUNCTION(BlueprintCallable, DisplayName = "End Abilities (By Definition Query)", Category="GMAS|Abilities")
-	// End all abilities with defintions matching query
+	// End all abilities matching query
 	int EndAbilitiesByQuery(const FGameplayTagQuery& Query);
 
 	UFUNCTION(BlueprintCallable, DisplayName="Count Activated Ability Instances (by tag)", Category="GMAS|Abilities")
@@ -378,6 +378,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="GMAS|Effects", DisplayName="Remove Effect by Handle")
 	bool RemoveEffectByHandle(int EffectHandle, EGMCAbilityEffectQueueType QueueType);
 	
+	UFUNCTION(BlueprintCallable, Category="GMAS|Effects", DisplayName="Remove Effects by Definition Query")
+	int32 RemoveEffectsByQuery(const FGameplayTagQuery& Query, EGMCAbilityEffectQueueType QueueType);
+
 	/**
 	 * Gets the number of active effects with the inputted tag.
 	 * Returns -1 if tag is invalid.

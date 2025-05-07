@@ -450,9 +450,9 @@ int UGMC_AbilitySystemComponent::EndAbilitiesByQuery(const FGameplayTagQuery& Qu
 {
 	int AbilitiesEnded = 0;
 
-	for (const auto& Pair : ActiveAbilities)
+	for (const auto& ActiveAbilityData : ActiveAbilities)
 	{
-		if (UGMCAbility* Ability = Pair.Value)
+		if (UGMCAbility* Ability = ActiveAbilityData.Value)
 		{
 			if (Query.Matches(Ability->AbilityDefinition))
 			{
@@ -1866,7 +1866,6 @@ void UGMC_AbilitySystemComponent::RemoveActiveAbilityEffectByTag(FGameplayTag Ta
 	
 }
 
-
 TArray<int> UGMC_AbilitySystemComponent::EffectsMatchingTag(const FGameplayTag& Tag, int32 NumToRemove) const
 {
 	if (NumToRemove < -1 || !Tag.IsValid()) {
@@ -1923,6 +1922,25 @@ int32 UGMC_AbilitySystemComponent::RemoveEffectByTagSafe(FGameplayTag InEffectTa
 	}
 
 	return EffectsToRemove.Num();	
+}
+
+int UGMC_AbilitySystemComponent::RemoveEffectsByQuery(const FGameplayTagQuery& Query, EGMCAbilityEffectQueueType QueueType)
+{
+	int EffectsRemoved = 0;
+
+	for (const auto& EffectEntry : ActiveEffects)
+	{
+		if (UGMCAbilityEffect* Effect = EffectEntry.Value)
+		{
+			if (Query.Matches(Effect->EffectData.EffectDefinition))
+			{
+				RemoveActiveAbilityEffectSafe(Effect, QueueType);
+				EffectsRemoved++;
+				UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Removed effect %s by query"), *Effect->EffectData.EffectTag.ToString());
+			}
+		}
+	}
+	return EffectsRemoved;
 }
 
 bool UGMC_AbilitySystemComponent::RemoveEffectByIdSafe(TArray<int> Ids, EGMCAbilityEffectQueueType QueueType)
