@@ -740,11 +740,11 @@ private:
 
 	friend UGMCAbilityAnimInstance;
 
+public:
 	// Networked FX
-
 	// Is this ASC locally controlled?
 	bool IsLocallyControlledPawnASC() const;
-
+	
 	// Spawn a Niagara system
 	// IsClientPredicted: If true, the system will be spawned on the client immediately. False, the local client will spawn it when the multicast is received
 	// bDelayByGMCSmoothing: If true, the system will be spawned with a delay for SimProxies to match the smoothing delay

@@ -2252,9 +2252,6 @@ UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpa
 		{
 			UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
 		}, Delay, false);
-
-		UE_LOG(LogTemp, Warning, TEXT("Delay: %f"), Delay);
-
 		return nullptr;
 	}
 
