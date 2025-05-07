@@ -33,6 +33,9 @@ UWorld* UGMCAbility::GetWorld() const
 
 void UGMCAbility::Tick(float DeltaTime)
 {
+	// Don't tick before the ability is initialized or after it has ended
+	if (AbilityState == EAbilityState::PreExecution || AbilityState == EAbilityState::Ended) return;
+	
 	if (!OwnerAbilityComponent->HasAuthority())
 	{
 		if (!bServerConfirmed && ClientStartTime + ServerConfirmTimeout < OwnerAbilityComponent->ActionTimer)
@@ -53,6 +56,9 @@ void UGMCAbility::Tick(float DeltaTime)
 }
 
 void UGMCAbility::AncillaryTick(float DeltaTime){
+	// Don't tick before the ability is initialized or after it has ended
+	if (AbilityState == EAbilityState::PreExecution || AbilityState == EAbilityState::Ended) return;
+	
 	AncillaryTickTasks(DeltaTime);
 	AncillaryTickEvent(DeltaTime);
 }

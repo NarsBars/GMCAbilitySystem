@@ -6,10 +6,13 @@
 #include "GMCAbilitySystem.h"
 #include "GMCOrganicMovementComponent.h"
 #include "GMCPlayerController.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Ability/GMCAbility.h"
 #include "Ability/GMCAbilityMapData.h"
 #include "Attributes/GMCAttributesData.h"
 #include "Effects/GMCAbilityEffect.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -954,12 +957,14 @@ void UGMC_AbilitySystemComponent::ClientHandlePredictedPendingEffect()
 	}
 }
 
-void UGMC_AbilitySystemComponent::RPCTaskHeartbeat_Implementation(int AbilityID, int TaskID)
+bool UGMC_AbilitySystemComponent::IsLocallyControlledPawnASC() const
 {
-	if (ActiveAbilities.Contains(AbilityID) && ActiveAbilities[AbilityID] != nullptr)
+	if (const APawn* Pawn = Cast<APawn>(GetOwner()))
 	{
-		ActiveAbilities[AbilityID]->HandleTaskHeartbeat(TaskID);
+		return Pawn->IsLocallyControlled();
 	}
+
+	return false;
 }
 
 void UGMC_AbilitySystemComponent::RPCClientEndEffect_Implementation(int EffectID)
@@ -968,6 +973,14 @@ void UGMC_AbilitySystemComponent::RPCClientEndEffect_Implementation(int EffectID
 	{
 		ActiveEffects[EffectID]->EndEffect();
 		UE_LOG(LogGMCAbilitySystem, VeryVerbose, TEXT("[RPC] Server Ended Effect: %d"), EffectID);
+	}
+}
+
+void UGMC_AbilitySystemComponent::RPCTaskHeartbeat_Implementation(int AbilityID, int TaskID)
+{
+	if (ActiveAbilities.Contains(AbilityID) && ActiveAbilities[AbilityID] != nullptr)
+	{
+		ActiveAbilities[AbilityID]->HandleTaskHeartbeat(TaskID);
 	}
 }
 
@@ -2187,6 +2200,71 @@ void UGMC_AbilitySystemComponent::ApplyAbilityEffectModifier(FGMCAttributeModifi
 		}
 	}
 }
+
+//////////////// FX
+
+UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpawnParameters SpawnParams, 
+	bool bIsClientPredicted)
+{
+	if (SpawnParams.SystemTemplate == nullptr)
+	{
+		UE_LOG(LogGMCAbilitySystem, Error, TEXT("Trying to spawn FX, but FX is null!"));
+		return nullptr;
+	}
+	
+	if (SpawnParams.WorldContextObject == nullptr)
+	{
+		SpawnParams.WorldContextObject = GetWorld();
+	}
+
+	if (HasAuthority())
+	{
+		MC_SpawnParticleSystem(SpawnParams, bIsClientPredicted);
+	}
+
+    UNiagaraComponent* SpawnedComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
+	return SpawnedComponent;
+}
+
+void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted)
+{
+	// Server already spawned
+	if (HasAuthority()) return;
+	
+	// Owning client already spawned
+	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
+	
+	SpawnParticleSystem(SpawnParams, bIsClientPredicted);
+}
+
+void UGMC_AbilitySystemComponent::SpawnSound(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier, bool bIsClientPredicted)
+{
+	// Spawn sound
+	if (Sound == nullptr)
+	{
+		UE_LOG(LogGMCAbilitySystem, Error, TEXT("Trying to spawn sound, but sound is null!"));
+		return;
+	}
+
+	if (HasAuthority())
+	{
+		MC_SpawnSound(Sound, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
+	}
+
+	// Spawn Sound At Location
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), Sound, GetOwner()->GetActorLocation(), VolumeMultiplier, PitchMultiplier);
+}
+
+void UGMC_AbilitySystemComponent::MC_SpawnSound_Implementation(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier,
+	bool bIsClientPredicted)
+{
+	// Server already spawned
+	if (HasAuthority()) return;
+
+	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
+	SpawnSound(Sound, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
+}
+
 // ReplicatedProps
 void UGMC_AbilitySystemComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
