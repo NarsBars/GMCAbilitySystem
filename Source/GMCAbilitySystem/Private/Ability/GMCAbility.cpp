@@ -188,15 +188,11 @@ void UGMCAbility::CancelAbilities()
 			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Ability (tag) %s has been cancelled by (tag) %s"), *AbilityTag.ToString(), *AbilityToCancelTag.ToString());	
 		}
 	}
-
+	
 	FGameplayTagContainer TagsToMatch = CancelAbilitiesWithTag;
 	TagsToMatch.AppendTags(AbilityDefinition);
 
-	if (TagsToMatch.Num() == 0)
-	{
-		UE_LOG(LogGMCAbilitySystem, Warning, TEXT("No tags in CancelAbilitiesWithTag or AbilityDefinition for %s"), *AbilityTag.ToString());
-		return;
-	}
+	if (TagsToMatch.Num() == 0) return; // do nothing
 
 	// should prob also append AbilityTag if want to use this system but left alone for now just in case
 	FGameplayTagQuery CancelQuery = FGameplayTagQuery::MakeQuery_MatchAnyTags(TagsToMatch);
