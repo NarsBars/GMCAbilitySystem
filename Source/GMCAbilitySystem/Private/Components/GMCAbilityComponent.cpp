@@ -559,8 +559,12 @@ void UGMC_AbilitySystemComponent::GenPredictionTick(float DeltaTime)
 
 void UGMC_AbilitySystemComponent::GenSimulationTick(float DeltaTime)
 {
-	CheckActiveTagsChanged();
-	CheckAttributeChanged();
+
+	if (!GMCMovementComponent->IsSmoothedListenServerPawn())
+	{
+		CheckActiveTagsChanged();
+		CheckAttributeChanged();
+	}
 	
 	if (GMCMovementComponent->GetSmoothingTargetIdx() == -1) return;	
 	const FVector TargetLocation = GMCMovementComponent->MoveHistory[GMCMovementComponent->GetSmoothingTargetIdx()].OutputState.ActorLocation.Read();
@@ -2203,7 +2207,7 @@ void UGMC_AbilitySystemComponent::ApplyAbilityEffectModifier(FGMCAttributeModifi
 //////////////// FX
 
 UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpawnParameters SpawnParams, 
-	bool bIsClientPredicted)
+	bool bIsClientPredicted, bool bDelayByGMCSmoothing)
 {
 	if (SpawnParams.SystemTemplate == nullptr)
 	{
@@ -2218,14 +2222,29 @@ UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpa
 
 	if (HasAuthority())
 	{
-		MC_SpawnParticleSystem(SpawnParams, bIsClientPredicted);
+		MC_SpawnParticleSystem(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
 	}
 
-    UNiagaraComponent* SpawnedComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
+	// Sim Proxies can delay FX by the smoothing delay to better line up
+	if (bDelayByGMCSmoothing && !HasAuthority() && !IsLocallyControlledPawnASC())
+	{
+		float Delay = GMCMovementComponent->GetTime() - GMCMovementComponent->GetSmoothingTime();
+		FTimerHandle DelayHandle;
+		GetWorld()->GetTimerManager().SetTimer(DelayHandle, [this, SpawnParams]()
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
+		}, Delay, false);
+
+		UE_LOG(LogTemp, Warning, TEXT("Delay: %f"), Delay);
+
+		return nullptr;
+	}
+
+	UNiagaraComponent* SpawnedComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
 	return SpawnedComponent;
 }
 
-void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted)
+void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted, bool bDelayByGMCSmoothing)
 {
 	// Server already spawned
 	if (HasAuthority()) return;
@@ -2233,7 +2252,7 @@ void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FF
 	// Owning client already spawned
 	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
 	
-	SpawnParticleSystem(SpawnParams, bIsClientPredicted);
+	SpawnParticleSystem(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
 }
 
 void UGMC_AbilitySystemComponent::SpawnSound(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier, bool bIsClientPredicted)
