@@ -7,7 +7,6 @@
 #include "GMCOrganicMovementComponent.h"
 #include "GMCPlayerController.h"
 #include "NiagaraFunctionLibrary.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Ability/GMCAbility.h"
 #include "Ability/GMCAbilityMapData.h"
 #include "Attributes/GMCAttributesData.h"
