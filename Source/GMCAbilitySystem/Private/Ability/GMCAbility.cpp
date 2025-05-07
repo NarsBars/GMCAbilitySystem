@@ -188,25 +188,32 @@ void UGMCAbility::CancelAbilities()
 			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Ability (tag) %s has been cancelled by (tag) %s"), *AbilityTag.ToString(), *AbilityToCancelTag.ToString());	
 		}
 	}
-	// Cancel by AbilityDefinition (generic category tags)
-	TArray<FGameplayTag> DefinitionTags;
-	AbilityDefinition.GetGameplayTagArray(DefinitionTags);
 
-	for (const FGameplayTag& DefinitionTag : DefinitionTags)
+	FGameplayTagContainer TagsToMatch = CancelAbilitiesWithTag;
+	TagsToMatch.AppendTags(AbilityDefinition);
+
+	if (TagsToMatch.Num() == 0)
 	{
-		// Prevent self-cancellation
-		if (AbilityTag.MatchesTag(DefinitionTag))
+		UE_LOG(LogGMCAbilitySystem, Warning, TEXT("No tags in CancelAbilitiesWithTag or AbilityDefinition for %s"), *AbilityTag.ToString());
+		return;
+	}
+
+	// should prob also append AbilityTag if want to use this system but left alone for now just in case
+	FGameplayTagQuery CancelQuery = FGameplayTagQuery::MakeQuery_MatchAnyTags(TagsToMatch);
+	UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Generated Cancel Query: %s"), *CancelQuery.GetDescription());
+
+	for (const auto& ActiveAbility : OwnerAbilityComponent->GetActiveAbilities())
+	{
+		if (ActiveAbility.Value == this)
 		{
-			UE_LOG(LogGMCAbilitySystem, Warning, TEXT("Ability (tag) %s attempted to cancel itself via AbilityDefinition tag %s"),
-				*AbilityTag.ToString(), *DefinitionTag.ToString());
-			continue;
+			continue; // prevent self-cancellation
 		}
 
-		int Cancelled = OwnerAbilityComponent->EndAbilitiesByTag(DefinitionTag);
-		if (Cancelled > 0)
+		if (CancelQuery.Matches(ActiveAbility.Value->AbilityDefinition))
 		{
-			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Ability (tag) %s cancelled %d ability(ies) by AbilityDefinition tag: %s"),
-				*AbilityTag.ToString(), Cancelled, *DefinitionTag.ToString());
+			ActiveAbility.Value->SetPendingEnd();
+			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Ability %s cancelled ability %s (matching query)"),
+				*AbilityTag.ToString(), *ActiveAbility.Value->AbilityTag.ToString());
 		}
 	}
 }
