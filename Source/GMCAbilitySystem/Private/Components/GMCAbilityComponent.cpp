@@ -6,10 +6,13 @@
 #include "GMCAbilitySystem.h"
 #include "GMCOrganicMovementComponent.h"
 #include "GMCPlayerController.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Ability/GMCAbility.h"
 #include "Ability/GMCAbilityMapData.h"
 #include "Attributes/GMCAttributesData.h"
 #include "Effects/GMCAbilityEffect.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -82,12 +85,6 @@ void UGMC_AbilitySystemComponent::BindReplicationData()
 	// We sort our attributes alphabetically by tag so that it's deterministic.
 	for (auto& AttributeForBind : BoundAttributes.Attributes)
 	{
-		GMCMovementComponent->BindSinglePrecisionFloat(AttributeForBind.BaseValue,
-			EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
-			EGMC_CombineMode::CombineIfUnchanged,
-			EGMC_SimulationMode::Periodic_Output,
-			EGMC_InterpolationFunction::TargetValue);
-		
 		GMCMovementComponent->BindSinglePrecisionFloat(AttributeForBind.Value,
 			EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
 			EGMC_CombineMode::CombineIfUnchanged,
@@ -113,13 +110,6 @@ void UGMC_AbilitySystemComponent::BindReplicationData()
 			EGMC_InterpolationFunction::TargetValue);
 	}
 	
-	// Sync'd Action Timer
-	GMCMovementComponent->BindDoublePrecisionFloat(ActionTimer,
-		EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
-		EGMC_CombineMode::CombineIfUnchanged,
-		EGMC_SimulationMode::None,
-		EGMC_InterpolationFunction::TargetValue);
-
 	// Granted Abilities
 	GMCMovementComponent->BindGameplayTagContainer(GrantedAbilityTags,
 		EGMC_PredictionMode::ServerAuth_Output_ClientValidated,
@@ -172,6 +162,8 @@ void UGMC_AbilitySystemComponent::GenAncillaryTick(float DeltaTime, bool bIsComb
 
 	
 	TickActiveCooldowns(DeltaTime);
+
+	SendTaskDataToActiveAbility(false);
 	TickAncillaryActiveAbilities(DeltaTime);
 
 	// Check if we have a valid operation
@@ -180,8 +172,6 @@ void UGMC_AbilitySystemComponent::GenAncillaryTick(float DeltaTime, bool bIsComb
 	{
 		ProcessAbilityOperation(Operation, false);
 	}
-
-	SendTaskDataToActiveAbility(false);
 	
 	ClearAbilityAndTaskData();
 	QueuedEffectOperations_ClientAuth.ClearCurrentOperation();
@@ -538,11 +528,14 @@ bool UGMC_AbilitySystemComponent::IsServerOnly() const
 void UGMC_AbilitySystemComponent::GenPredictionTick(float DeltaTime)
 {
 	bJustTeleported = false;
-	ActionTimer += DeltaTime;
+	// ActionTimer += DeltaTime;
+	ActionTimer = GMCMovementComponent->GetMoveTimestamp();
 	
 	ApplyStartingEffects();
-	
+
+	SendTaskDataToActiveAbility(true);
 	TickActiveAbilities(DeltaTime);
+	
 	TickActiveEffects(DeltaTime);
 	
 	// Abilities
@@ -562,7 +555,7 @@ void UGMC_AbilitySystemComponent::GenPredictionTick(float DeltaTime)
 
 	ServerHandlePredictedPendingEffect(DeltaTime);
 	
-	SendTaskDataToActiveAbility(true);
+	
 }
 
 void UGMC_AbilitySystemComponent::GenSimulationTick(float DeltaTime)
@@ -964,12 +957,14 @@ void UGMC_AbilitySystemComponent::ClientHandlePredictedPendingEffect()
 	}
 }
 
-void UGMC_AbilitySystemComponent::RPCTaskHeartbeat_Implementation(int AbilityID, int TaskID)
+bool UGMC_AbilitySystemComponent::IsLocallyControlledPawnASC() const
 {
-	if (ActiveAbilities.Contains(AbilityID) && ActiveAbilities[AbilityID] != nullptr)
+	if (const APawn* Pawn = Cast<APawn>(GetOwner()))
 	{
-		ActiveAbilities[AbilityID]->HandleTaskHeartbeat(TaskID);
+		return Pawn->IsLocallyControlled();
 	}
+
+	return false;
 }
 
 void UGMC_AbilitySystemComponent::RPCClientEndEffect_Implementation(int EffectID)
@@ -978,6 +973,14 @@ void UGMC_AbilitySystemComponent::RPCClientEndEffect_Implementation(int EffectID
 	{
 		ActiveEffects[EffectID]->EndEffect();
 		UE_LOG(LogGMCAbilitySystem, VeryVerbose, TEXT("[RPC] Server Ended Effect: %d"), EffectID);
+	}
+}
+
+void UGMC_AbilitySystemComponent::RPCTaskHeartbeat_Implementation(int AbilityID, int TaskID)
+{
+	if (ActiveAbilities.Contains(AbilityID) && ActiveAbilities[AbilityID] != nullptr)
+	{
+		ActiveAbilities[AbilityID]->HandleTaskHeartbeat(TaskID);
 	}
 }
 
@@ -1084,6 +1087,20 @@ bool UGMC_AbilitySystemComponent::CheckActivationTags(const UGMCAbility* Ability
 }
 
 
+void UGMC_AbilitySystemComponent::ClearAbilityMap()
+{
+	// For each AbilityMap in the map AbilityMap:
+	for (auto& AbilityMapData : AbilityMap)
+	{
+		if (GrantedAbilityTags.HasTag(AbilityMapData.Value.InputTag))
+		{
+			GrantedAbilityTags.RemoveTag(AbilityMapData.Value.InputTag);
+		}
+	}
+	
+	AbilityMap.Empty();
+}
+
 void UGMC_AbilitySystemComponent::InitializeAbilityMap(){
 	for (UGMCAbilityMapData* StartingAbilityMap : AbilityMaps)
 	{
@@ -1121,12 +1138,12 @@ void UGMC_AbilitySystemComponent::RemoveAbilityMapData(const FAbilityMapData& Ab
 	{
 		AbilityMap.Remove(AbilityMapData.InputTag);
 	}
+	
+	if (GrantedAbilityTags.HasTag(AbilityMapData.InputTag))
 	{
-		if (GrantedAbilityTags.HasTag(AbilityMapData.InputTag))
-		{
-			GrantedAbilityTags.RemoveTag(AbilityMapData.InputTag);
-		}
+		GrantedAbilityTags.RemoveTag(AbilityMapData.InputTag);
 	}
+	
 }
 
 void UGMC_AbilitySystemComponent::InitializeStartingAbilities()
@@ -1689,7 +1706,7 @@ bool UGMC_AbilitySystemComponent::ApplyAbilityEffect(TSubclassOf<UGMCAbilityEffe
 				return false;
 			}
 
-			if (QueueType == EGMCAbilityEffectQueueType::ServerAuthMove) Operation.Header.RPCGracePeriodSeconds = 5.f;
+			if (QueueType == EGMCAbilityEffectQueueType::ServerAuthMove) Operation.Header.RPCGracePeriodSeconds = Operation.Payload.ClientGraceTime;;
 
 			QueuedEffectOperations.QueuePreparedOperation(Operation, QueueType == EGMCAbilityEffectQueueType::ServerAuthMove);
 
@@ -1906,7 +1923,7 @@ bool UGMC_AbilitySystemComponent::RemoveEffectByIdSafe(TArray<int> Ids, EGMCAbil
 				if (!GMCMovementComponent->IsExecutingMove() && GetNetMode() != NM_Standalone && !bInAncillaryTick)
 				{
 					
-					ensureMsgf(false, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
+				ensureMsgf(false, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
 						*GetNetRoleAsString(GetOwnerRole()), *GetOwner()->GetName(), *GetEffectsNameAsString(GetEffectsByIds(Ids)));
 					UE_LOG(LogGMCAbilitySystem, Error, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
 						*GetNetRoleAsString(GetOwnerRole()), *GetOwner()->GetName(), *GetEffectsNameAsString(GetEffectsByIds(Ids)));
@@ -2183,6 +2200,71 @@ void UGMC_AbilitySystemComponent::ApplyAbilityEffectModifier(FGMCAttributeModifi
 		}
 	}
 }
+
+//////////////// FX
+
+UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpawnParameters SpawnParams, 
+	bool bIsClientPredicted)
+{
+	if (SpawnParams.SystemTemplate == nullptr)
+	{
+		UE_LOG(LogGMCAbilitySystem, Error, TEXT("Trying to spawn FX, but FX is null!"));
+		return nullptr;
+	}
+	
+	if (SpawnParams.WorldContextObject == nullptr)
+	{
+		SpawnParams.WorldContextObject = GetWorld();
+	}
+
+	if (HasAuthority())
+	{
+		MC_SpawnParticleSystem(SpawnParams, bIsClientPredicted);
+	}
+
+    UNiagaraComponent* SpawnedComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
+	return SpawnedComponent;
+}
+
+void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted)
+{
+	// Server already spawned
+	if (HasAuthority()) return;
+	
+	// Owning client already spawned
+	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
+	
+	SpawnParticleSystem(SpawnParams, bIsClientPredicted);
+}
+
+void UGMC_AbilitySystemComponent::SpawnSound(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier, bool bIsClientPredicted)
+{
+	// Spawn sound
+	if (Sound == nullptr)
+	{
+		UE_LOG(LogGMCAbilitySystem, Error, TEXT("Trying to spawn sound, but sound is null!"));
+		return;
+	}
+
+	if (HasAuthority())
+	{
+		MC_SpawnSound(Sound, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
+	}
+
+	// Spawn Sound At Location
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), Sound, GetOwner()->GetActorLocation(), VolumeMultiplier, PitchMultiplier);
+}
+
+void UGMC_AbilitySystemComponent::MC_SpawnSound_Implementation(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier,
+	bool bIsClientPredicted)
+{
+	// Server already spawned
+	if (HasAuthority()) return;
+
+	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
+	SpawnSound(Sound, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
+}
+
 // ReplicatedProps
 void UGMC_AbilitySystemComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {

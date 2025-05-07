@@ -11,6 +11,7 @@
 UENUM(BlueprintType)
 enum class EAbilityState : uint8
 {
+	PreExecution,
 	Initialized,
 	Running,
 	Waiting,
@@ -36,7 +37,7 @@ public:
 	//// Ability State
 	// EAbilityState. Use Getters/Setters
 	UPROPERTY(BlueprintReadOnly, Category = "GMCAbilitySystem")
-	EAbilityState AbilityState;
+	EAbilityState AbilityState = EAbilityState::PreExecution;
 
 	// Data used to execute this ability
 	UPROPERTY(BlueprintReadOnly, Category = "GMCAbilitySystem")

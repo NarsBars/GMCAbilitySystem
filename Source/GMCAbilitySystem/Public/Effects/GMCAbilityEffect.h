@@ -183,7 +183,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "GMCAbilitySystem")
 	void InitializeEffect(FGMCAbilityEffectData InitializationData);
-	
+
+	UFUNCTION(BlueprintCallable, Category = "GMCAbilitySystem")
 	void EndEffect();
 
 	virtual void BeginDestroy() override;
