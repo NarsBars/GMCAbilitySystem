@@ -555,6 +555,12 @@ private:
 	// Map of Ability Tags to Ability Classes
 	TMap<FGameplayTag, FAbilityMapData> AbilityMap;
 
+public:
+	// Empty the AbilityMap and remove all granted abilities from existing maps
+	UFUNCTION(BlueprintCallable)
+	void ClearAbilityMap();
+
+private:
 	// List of filtered tag delegates to call when tags change.
 	TArray<TPair<FGameplayTagContainer, FGameplayTagFilteredMulticastDelegate>> FilteredTagDelegates;
 

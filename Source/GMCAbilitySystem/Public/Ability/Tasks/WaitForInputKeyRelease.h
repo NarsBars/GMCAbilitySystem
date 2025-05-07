@@ -6,7 +6,7 @@
 #include "WaitForInputKeyRelease.generated.h"
 
 // DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FUWaitForInputKeyReleaseAsyncActionPin, float, DurationHeld);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGMCAbilityTaskWaitForInputKeyRelease);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGMCAbilityTaskWaitForInputKeyRelease, float, Duration);
 
 
 UCLASS()
@@ -29,13 +29,18 @@ public:
 	 * @return 
 	 */
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", HidePin = "OwningAbility", DefaultToSelf = "OwningAbility", BlueprintInternalUseOnly = "TRUE"), DisplayName="Wait For Input Key Release",Category = "GMCAbilitySystem/Tasks")
-	static UGMCAbilityTask_WaitForInputKeyRelease* WaitForKeyRelease(UGMCAbility* OwningAbility, bool bCheckForReleaseDuringActivation = true);
+	static UGMCAbilityTask_WaitForInputKeyRelease* WaitForKeyRelease(UGMCAbility* OwningAbility, bool bCheckForReleaseDuringActivation = true, float MaxDuration = 0.0f);
 
 	//Overriding BP async action base
 	virtual void Activate() override;
 
+	virtual void AncillaryTick(float DeltaTime) override;
+
 	UPROPERTY(BlueprintAssignable)
 	FGMCAbilityTaskWaitForInputKeyRelease Completed;
+
+	UPROPERTY(BlueprintAssignable)
+	FGMCAbilityTaskWaitForInputKeyRelease OnTick;
 
 protected:
 
@@ -50,8 +55,9 @@ private:
 	UEnhancedInputComponent* GetEnhancedInputComponent() const;
 
 	int64 InputBindingHandle = -1;
+
+	float MaxDuration;
 	
-	// Todo: Add duration back in
 	float StartTime;
 	float Duration;
 	double OldTime;

@@ -16,7 +16,7 @@ void UGMCAbilityTask_SetTargetDataHit::Activate()
 {
 	Super::Activate();
 
-	if (AbilitySystemComponent->GetNetMode() != NM_DedicatedServer)
+	if (IsClientOrRemoteListenServerPawn())
 	{
 		ClientProgressTask();
 	}
