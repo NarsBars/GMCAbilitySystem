@@ -218,6 +218,10 @@ public:
 	// End all abilities with the corresponding tag, returns the number of abilities ended
 	int EndAbilitiesByClass(TSubclassOf<UGMCAbility> AbilityClass);
 	
+	UFUNCTION(BlueprintCallable, DisplayName = "End Abilities (By Definition Query)", Category="GMAS|Abilities")
+	// End all abilities with defintions matching query
+	int EndAbilitiesByQuery(const FGameplayTagQuery& Query);
+
 	UFUNCTION(BlueprintCallable, DisplayName="Count Activated Ability Instances (by tag)", Category="GMAS|Abilities")
 	int32 GetActiveAbilityCountByTag(FGameplayTag AbilityTag);
 	
