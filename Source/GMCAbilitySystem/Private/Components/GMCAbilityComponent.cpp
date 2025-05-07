@@ -446,6 +446,26 @@ int UGMC_AbilitySystemComponent::EndAbilitiesByClass(TSubclassOf<UGMCAbility> Ab
 }
 
 
+int UGMC_AbilitySystemComponent::EndAbilitiesByQuery(const FGameplayTagQuery& Query)
+{
+	int AbilitiesEnded = 0;
+
+	for (const auto& Pair : ActiveAbilities)
+	{
+		if (UGMCAbility* Ability = Pair.Value)
+		{
+			if (Query.Matches(Ability->AbilityDefinition))
+			{
+				Ability->SetPendingEnd();
+				AbilitiesEnded++;
+				UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("cancelled ability %s by query"), *Ability->AbilityTag.ToString());
+			}
+		}
+	}
+	return AbilitiesEnded;
+}
+
+
 int32 UGMC_AbilitySystemComponent::GetActiveAbilityCountByTag(FGameplayTag AbilityTag)
 {
 	int32 Result = 0;
