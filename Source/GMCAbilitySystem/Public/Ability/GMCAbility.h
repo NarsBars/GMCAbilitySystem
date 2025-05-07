@@ -117,7 +117,7 @@ public:
 	UPROPERTY(EditAnywhere, meta=(Categories="Ability"), Category = "GMCAbilitySystem")
 	FGameplayTag AbilityTag;
 
-	UPROPERTY(EditDefaultsOnly, Category = "GMCAbilitySystem", meta=(Categories="Ability"))
+	UPROPERTY(EditDefaultsOnly, Category = "GMCAbilitySystem")
 	// Container for a more generalized definition of abilities
 	FGameplayTagContainer AbilityDefinition;
 
