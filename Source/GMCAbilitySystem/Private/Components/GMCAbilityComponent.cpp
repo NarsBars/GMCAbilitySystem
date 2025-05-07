@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Components/GMCAbilityComponent.h"
@@ -747,6 +747,7 @@ void UGMC_AbilitySystemComponent::CheckAttributeChanged() {
 		FAttribute& OldAttribute = OldBoundAttributes.Attributes[i];
 		if (Attribute.Value != OldAttribute.Value)
 		{
+			NativeAttributeChangeDelegate.Broadcast(Attribute.Tag, OldAttribute.Value, Attribute.Value);
 			OnAttributeChanged.Broadcast(Attribute.Tag, OldAttribute.Value, Attribute.Value);
 			OldAttribute.Value = Attribute.Value;
 		}
@@ -2231,9 +2232,6 @@ void UGMC_AbilitySystemComponent::ApplyAbilityEffectModifier(FGMCAttributeModifi
 		// Only broadcast a change if we've genuinely changed.
 		if (OldValue != AffectedAttribute->Value)
 		{
-			OnAttributeChanged.Broadcast(AffectedAttribute->Tag, OldValue, AffectedAttribute->Value);
-			NativeAttributeChangeDelegate.Broadcast(AffectedAttribute->Tag, OldValue, AffectedAttribute->Value);
-
 			if (!AffectedAttribute->bIsGMCBound)
 			{
 				UnBoundAttributes.MarkAttributeDirty(*AffectedAttribute);
