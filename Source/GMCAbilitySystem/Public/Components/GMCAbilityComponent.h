@@ -756,10 +756,10 @@ public:
 
 	// Spawn a Sound at the given location
 	UFUNCTION(BlueprintCallable, Category="GMAS|FX")
-	void SpawnSound(USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
+	void SpawnSound(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
 
 	UFUNCTION(NetMulticast, Unreliable)
-	void MC_SpawnSound(USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
+	void MC_SpawnSound(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
 
 	
 };
