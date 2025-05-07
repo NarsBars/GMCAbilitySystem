@@ -7,7 +7,6 @@
 #include "GMCOrganicMovementComponent.h"
 #include "GMCPlayerController.h"
 #include "NiagaraFunctionLibrary.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Ability/GMCAbility.h"
 #include "Ability/GMCAbilityMapData.h"
 #include "Attributes/GMCAttributesData.h"
@@ -441,6 +440,26 @@ int UGMC_AbilitySystemComponent::EndAbilitiesByClass(TSubclassOf<UGMCAbility> Ab
 		{
 			ActiveAbilityData.Value->EndAbility();
 			AbilitiesEnded++;
+		}
+	}
+	return AbilitiesEnded;
+}
+
+
+int UGMC_AbilitySystemComponent::EndAbilitiesByQuery(const FGameplayTagQuery& Query)
+{
+	int AbilitiesEnded = 0;
+
+	for (const auto& Pair : ActiveAbilities)
+	{
+		if (UGMCAbility* Ability = Pair.Value)
+		{
+			if (Query.Matches(Ability->AbilityDefinition))
+			{
+				Ability->SetPendingEnd();
+				AbilitiesEnded++;
+				UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("cancelled ability %s by query"), *Ability->AbilityTag.ToString());
+			}
 		}
 	}
 	return AbilitiesEnded;
