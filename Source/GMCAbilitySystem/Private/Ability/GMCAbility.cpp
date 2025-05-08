@@ -250,7 +250,7 @@ void UGMCAbility::OnGameplayTaskInitialized(UGameplayTask& Task)
 	UGMCAbilityTaskBase* AbilityTask = Cast<UGMCAbilityTaskBase>(&Task);
 	if (!AbilityTask)
 	{
-		UE_LOG(LogGMCAbilitySystem, Error, TEXT("UGMCAbility::OnGameplayTaskInitialized called with non-UGMCAbilityTaskBase task"));
+		// UE_LOG(LogGMCAbilitySystem, Error, TEXT("UGMCAbility::OnGameplayTaskInitialized called with non-UGMCAbilityTaskBase task"));
 		return;
 	}
 	AbilityTask->SetAbilitySystemComponent(OwnerAbilityComponent);
@@ -342,6 +342,7 @@ void UGMCAbility::EndAbility()
 	if (AbilityState != EAbilityState::Ended) {
 		FinishEndAbility();
 		EndAbilityEvent();
+		OwnerAbilityComponent->OnAbilityEnded.Broadcast(this);
 	}
 }
 

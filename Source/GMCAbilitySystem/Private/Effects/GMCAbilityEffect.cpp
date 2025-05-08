@@ -220,6 +220,11 @@ void UGMCAbilityEffect::PeriodTick()
 			OwnerAbilityComponent->ApplyAbilityEffectModifier(AttributeModifier, true, false, SourceAbilityComponent);
 		}
 	}
+	PeriodTickEvent();
+}
+
+void UGMCAbilityEffect::PeriodTickEvent_Implementation()
+{
 }
 
 void UGMCAbilityEffect::UpdateState(EGMASEffectState State, bool Force)
@@ -235,6 +240,18 @@ void UGMCAbilityEffect::UpdateState(EGMASEffectState State, bool Force)
 bool UGMCAbilityEffect::IsPeriodPaused()
 {
 	return DoesOwnerHaveTagFromContainer(EffectData.PausePeriodicEffect);
+}
+
+void UGMCAbilityEffect::GetOwnerActor(AActor*& OutOwnerActor) const
+{
+	if (OwnerAbilityComponent)
+	{
+		OutOwnerActor = OwnerAbilityComponent->GetOwner();
+	}
+	else
+	{
+		OutOwnerActor = nullptr;
+	}
 }
 
 void UGMCAbilityEffect::AddTagsToOwner()

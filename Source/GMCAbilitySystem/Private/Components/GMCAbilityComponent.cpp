@@ -158,6 +158,7 @@ void UGMC_AbilitySystemComponent::GenAncillaryTick(float DeltaTime, bool bIsComb
 	
 	CheckActiveTagsChanged();
 	CheckAttributeChanged();
+	CheckUnBoundAttributeChanged();
 
 	
 	TickActiveCooldowns(DeltaTime);
@@ -584,6 +585,7 @@ void UGMC_AbilitySystemComponent::GenSimulationTick(float DeltaTime)
 	{
 		CheckActiveTagsChanged();
 		CheckAttributeChanged();
+		CheckUnBoundAttributeChanged();
 	}
 	
 	if (GMCMovementComponent->GetSmoothingTargetIdx() == -1) return;	
@@ -1416,17 +1418,13 @@ void UGMC_AbilitySystemComponent::RPCClientQueueEffectOperation_Implementation(c
 
 void UGMC_AbilitySystemComponent::OnRep_UnBoundAttributes()
 {
-	
 	if (OldUnBoundAttributes.Items.Num() != UnBoundAttributes.Items.Num())
 	{
 		UE_LOG(LogGMCAbilitySystem, Error, TEXT("OnRep_UnBoundAttributes: Mismatched Attribute Old != New Value !"));
 	}
-
-	CheckUnBoundAttributeChanges();
-	
 }
 
-void UGMC_AbilitySystemComponent::CheckUnBoundAttributeChanges()
+void UGMC_AbilitySystemComponent::CheckUnBoundAttributeChanged()
 {
 	TArray<FAttribute>& OldAttributes = OldUnBoundAttributes.Items;
 	const TArray<FAttribute>& CurrentAttributes = UnBoundAttributes.Items;
@@ -1946,8 +1944,8 @@ bool UGMC_AbilitySystemComponent::RemoveEffectByIdSafe(TArray<int> Ids, EGMCAbil
 			{
 				if (!GMCMovementComponent->IsExecutingMove() && GetNetMode() != NM_Standalone && !bInAncillaryTick)
 				{
-					
-				ensureMsgf(false, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
+
+					ensureMsgf(false, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
 						*GetNetRoleAsString(GetOwnerRole()), *GetOwner()->GetName(), *GetEffectsNameAsString(GetEffectsByIds(Ids)));
 					UE_LOG(LogGMCAbilitySystem, Error, TEXT("[%20s] %s attempted a predicted removal of effects outside of a movement cycle! (%s)"),
 						*GetNetRoleAsString(GetOwnerRole()), *GetOwner()->GetName(), *GetEffectsNameAsString(GetEffectsByIds(Ids)));
@@ -2224,7 +2222,7 @@ void UGMC_AbilitySystemComponent::ApplyAbilityEffectModifier(FGMCAttributeModifi
 
 //////////////// FX
 
-UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpawnParameters SpawnParams, 
+UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystemAttached(FFXSystemSpawnParameters SpawnParams, 
 	bool bIsClientPredicted, bool bDelayByGMCSmoothing)
 {
 	if (SpawnParams.SystemTemplate == nullptr)
@@ -2240,7 +2238,53 @@ UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpa
 
 	if (HasAuthority())
 	{
-		MC_SpawnParticleSystem(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
+		MC_SpawnParticleSystemAttached(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
+	}
+
+	// Sim Proxies can delay FX by the smoothing delay to better line up
+	if (bDelayByGMCSmoothing && !HasAuthority() && !IsLocallyControlledPawnASC())
+	{
+		float Delay = GMCMovementComponent->GetTime() - GMCMovementComponent->GetSmoothingTime();
+		FTimerHandle DelayHandle;
+		GetWorld()->GetTimerManager().SetTimer(DelayHandle, [this, SpawnParams]()
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAttachedWithParams(SpawnParams);
+		}, Delay, false);
+		return nullptr;
+	}
+
+	UNiagaraComponent* SpawnedComponent = UNiagaraFunctionLibrary::SpawnSystemAttachedWithParams(SpawnParams);
+	return SpawnedComponent;
+}
+
+void UGMC_AbilitySystemComponent::MC_SpawnParticleSystemAttached_Implementation(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted, bool bDelayByGMCSmoothing)
+{
+	// Server already spawned
+	if (HasAuthority()) return;
+	
+	// Owning client already spawned
+	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
+	
+	SpawnParticleSystemAttached(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
+}
+
+UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystemAtLocation(FFXSystemSpawnParameters SpawnParams, bool bIsClientPredicted,
+	bool bDelayByGMCSmoothing)
+{
+	if (SpawnParams.SystemTemplate == nullptr)
+	{
+		UE_LOG(LogGMCAbilitySystem, Error, TEXT("Trying to spawn FX, but FX is null!"));
+		return nullptr;
+	}
+	
+	if (SpawnParams.WorldContextObject == nullptr)
+	{
+		SpawnParams.WorldContextObject = GetWorld();
+	}
+
+	if (HasAuthority())
+	{
+		MC_SpawnParticleSystemAtLocation(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
 	}
 
 	// Sim Proxies can delay FX by the smoothing delay to better line up
@@ -2259,7 +2303,8 @@ UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpa
 	return SpawnedComponent;
 }
 
-void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted, bool bDelayByGMCSmoothing)
+void UGMC_AbilitySystemComponent::MC_SpawnParticleSystemAtLocation_Implementation(const FFXSystemSpawnParameters& SpawnParams,
+	bool bIsClientPredicted, bool bDelayByGMCSmoothing)
 {
 	// Server already spawned
 	if (HasAuthority()) return;
@@ -2267,7 +2312,7 @@ void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FF
 	// Owning client already spawned
 	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
 	
-	SpawnParticleSystem(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
+	SpawnParticleSystemAtLocation(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
 }
 
 void UGMC_AbilitySystemComponent::SpawnSound(USoundBase* Sound, const FVector Location, const float VolumeMultiplier, const float PitchMultiplier, const bool bIsClientPredicted)
