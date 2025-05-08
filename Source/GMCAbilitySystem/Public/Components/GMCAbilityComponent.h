@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -35,6 +35,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAbilityEnded, UGMCAbility*, Abili
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnActiveTagsChanged, FGameplayTagContainer, AddedTags, FGameplayTagContainer, RemovedTags);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FGameplayTagFilteredMulticastDelegate, const FGameplayTagContainer&, const FGameplayTagContainer&);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAbilityActivated, FGameplayTag, ActivationTag, const UInputAction*, InputAction);
 
 USTRUCT()
 struct FEffectStatePrediction
@@ -221,7 +223,7 @@ public:
 	int EndAbilitiesByClass(TSubclassOf<UGMCAbility> AbilityClass);
 	
 	UFUNCTION(BlueprintCallable, DisplayName = "End Abilities (By Definition Query)", Category="GMAS|Abilities")
-	// End all abilities with defintions matching query
+	// End all abilities matching query
 	int EndAbilitiesByQuery(const FGameplayTagQuery& Query);
 
 	UFUNCTION(BlueprintCallable, DisplayName="Count Activated Ability Instances (by tag)", Category="GMAS|Abilities")
@@ -380,6 +382,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="GMAS|Effects", DisplayName="Remove Effect by Handle")
 	bool RemoveEffectByHandle(int EffectHandle, EGMCAbilityEffectQueueType QueueType);
 	
+	UFUNCTION(BlueprintCallable, Category="GMAS|Effects", DisplayName="Remove Effects by Definition Query")
+	int32 RemoveEffectsByQuery(const FGameplayTagQuery& Query, EGMCAbilityEffectQueueType QueueType);
+
 	/**
 	 * Gets the number of active effects with the inputted tag.
 	 * Returns -1 if tag is invalid.
@@ -413,6 +418,10 @@ public:
 	FOnSyncedEvent OnSyncedEvent;
 
 	FGameplayTagContainer PreviousActiveTags;
+
+	// Called when an ability is activated
+	UPROPERTY(BlueprintAssignable)
+	FOnAbilityActivated OnAbilityActivated;
 
 	/** Returns an array of pointers to all attributes */
 	TArray<const FAttribute*> GetAllAttributes() const;
@@ -636,10 +645,9 @@ private:
 	FEffectStatePrediction EffectStatePrediction{};
 
 	TArray<FEffectStatePrediction> QueuedEffectStates;
-	
+
 	UPROPERTY()
 	TMap<int, UGMCAbility*> ActiveAbilities;
-
 	
 	UPROPERTY()
 	TMap<FGameplayTag, float> ActiveCooldowns;

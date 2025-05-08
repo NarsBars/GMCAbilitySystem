@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Components/GMCAbilityComponent.h"
@@ -367,7 +367,9 @@ bool UGMC_AbilitySystemComponent::TryActivateAbility(const TSubclassOf<UGMCAbili
 	ActiveAbilities.Add(AbilityID, Ability);
 	
 	if (HasAuthority()) {RPCConfirmAbilityActivation(AbilityID);}
-	
+
+	OnAbilityActivated.Broadcast(ActivationTag, InputAction);
+
 	return true;
 }
 
@@ -451,9 +453,9 @@ int UGMC_AbilitySystemComponent::EndAbilitiesByQuery(const FGameplayTagQuery& Qu
 {
 	int AbilitiesEnded = 0;
 
-	for (const auto& Pair : ActiveAbilities)
+	for (const auto& ActiveAbilityData : ActiveAbilities)
 	{
-		if (UGMCAbility* Ability = Pair.Value)
+		if (UGMCAbility* Ability = ActiveAbilityData.Value)
 		{
 			if (Query.Matches(Ability->AbilityDefinition))
 			{
@@ -1098,6 +1100,7 @@ bool UGMC_AbilitySystemComponent::CheckActivationTags(const UGMCAbility* Ability
 		}
 	}
 
+
 	// Blocking Tags
 	for (const FGameplayTag Tag : Ability->ActivationBlockedTags)
 	{
@@ -1108,8 +1111,15 @@ bool UGMC_AbilitySystemComponent::CheckActivationTags(const UGMCAbility* Ability
 		}
 	}
 
+	// single activation query
+	if (!Ability->ActivationQuery.IsEmpty() && !Ability->ActivationQuery.Matches(ActiveTags))
+	{
+		UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Ability can't activate, blocked by query: %s"),
+			*Ability->ActivationQuery.GetDescription());
+		return false;
+	}
+
 	return true;
-	
 }
 
 
@@ -1865,7 +1875,6 @@ void UGMC_AbilitySystemComponent::RemoveActiveAbilityEffectByTag(FGameplayTag Ta
 	
 }
 
-
 TArray<int> UGMC_AbilitySystemComponent::EffectsMatchingTag(const FGameplayTag& Tag, int32 NumToRemove) const
 {
 	if (NumToRemove < -1 || !Tag.IsValid()) {
@@ -1922,6 +1931,25 @@ int32 UGMC_AbilitySystemComponent::RemoveEffectByTagSafe(FGameplayTag InEffectTa
 	}
 
 	return EffectsToRemove.Num();	
+}
+
+int UGMC_AbilitySystemComponent::RemoveEffectsByQuery(const FGameplayTagQuery& Query, EGMCAbilityEffectQueueType QueueType)
+{
+	int EffectsRemoved = 0;
+
+	for (const auto& EffectEntry : ActiveEffects)
+	{
+		if (UGMCAbilityEffect* Effect = EffectEntry.Value)
+		{
+			if (Query.Matches(Effect->EffectData.EffectDefinition))
+			{
+				RemoveActiveAbilityEffectSafe(Effect, QueueType);
+				EffectsRemoved++;
+				UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Removed effect %s by query"), *Effect->EffectData.EffectTag.ToString());
+			}
+		}
+	}
+	return EffectsRemoved;
 }
 
 bool UGMC_AbilitySystemComponent::RemoveEffectByIdSafe(TArray<int> Ids, EGMCAbilityEffectQueueType QueueType)
@@ -2296,6 +2324,9 @@ UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystemAtLocation(FF
 		{
 			UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
 		}, Delay, false);
+
+		UE_LOG(LogTemp, Warning, TEXT("Delay: %f"), Delay);
+
 		return nullptr;
 	}
 
