@@ -743,11 +743,11 @@ private:
 
 	friend UGMCAbilityAnimInstance;
 
+public:
 	// Networked FX
-
 	// Is this ASC locally controlled?
 	bool IsLocallyControlledPawnASC() const;
-
+	
 	// Spawn a Niagara system
 	// IsClientPredicted: If true, the system will be spawned on the client immediately. False, the local client will spawn it when the multicast is received
 	// bDelayByGMCSmoothing: If true, the system will be spawned with a delay for SimProxies to match the smoothing delay
@@ -759,10 +759,10 @@ private:
 
 	// Spawn a Sound at the given location
 	UFUNCTION(BlueprintCallable, Category="GMAS|FX")
-	void SpawnSound(USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
+	void SpawnSound(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
 
 	UFUNCTION(NetMulticast, Unreliable)
-	void MC_SpawnSound(USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
+	void MC_SpawnSound(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
 
 	
 };

@@ -2270,9 +2270,6 @@ UNiagaraComponent* UGMC_AbilitySystemComponent::SpawnParticleSystem(FFXSystemSpa
 		{
 			UNiagaraFunctionLibrary::SpawnSystemAtLocationWithParams(SpawnParams);
 		}, Delay, false);
-
-		UE_LOG(LogTemp, Warning, TEXT("Delay: %f"), Delay);
-
 		return nullptr;
 	}
 
@@ -2291,7 +2288,7 @@ void UGMC_AbilitySystemComponent::MC_SpawnParticleSystem_Implementation(const FF
 	SpawnParticleSystem(SpawnParams, bIsClientPredicted, bDelayByGMCSmoothing);
 }
 
-void UGMC_AbilitySystemComponent::SpawnSound(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier, bool bIsClientPredicted)
+void UGMC_AbilitySystemComponent::SpawnSound(USoundBase* Sound, const FVector Location, const float VolumeMultiplier, const float PitchMultiplier, const bool bIsClientPredicted)
 {
 	// Spawn sound
 	if (Sound == nullptr)
@@ -2302,21 +2299,21 @@ void UGMC_AbilitySystemComponent::SpawnSound(USoundBase* Sound, float VolumeMult
 
 	if (HasAuthority())
 	{
-		MC_SpawnSound(Sound, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
+		MC_SpawnSound(Sound, Location, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
 	}
 
 	// Spawn Sound At Location
-	UGameplayStatics::PlaySoundAtLocation(GetWorld(), Sound, GetOwner()->GetActorLocation(), VolumeMultiplier, PitchMultiplier);
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), Sound, Location, VolumeMultiplier, PitchMultiplier);
 }
 
-void UGMC_AbilitySystemComponent::MC_SpawnSound_Implementation(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier,
+void UGMC_AbilitySystemComponent::MC_SpawnSound_Implementation(USoundBase* Sound, const FVector Location, const float VolumeMultiplier, const float PitchMultiplier,
 	bool bIsClientPredicted)
 {
 	// Server already spawned
 	if (HasAuthority()) return;
 
 	if (IsLocallyControlledPawnASC() && bIsClientPredicted) return;
-	SpawnSound(Sound, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
+	SpawnSound(Sound, Location, VolumeMultiplier, PitchMultiplier, bIsClientPredicted);
 }
 
 // ReplicatedProps
