@@ -31,6 +31,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAncillaryTick, float, DeltaTime);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSyncedEvent, const FGMASSyncedEventContainer&, EventData);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAbilityEnded, UGMCAbility*, Ability);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnActiveTagsChanged, FGameplayTagContainer, AddedTags, FGameplayTagContainer, RemovedTags);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FGameplayTagFilteredMulticastDelegate, const FGameplayTagContainer&, const FGameplayTagContainer&);
 
@@ -273,7 +275,7 @@ public:
 	UFUNCTION()
 	void OnRep_UnBoundAttributes();
 
-	void CheckUnBoundAttributeChanges();
+	void CheckUnBoundAttributeChanged();
 
 	int GetNextAvailableEffectID() const;
 	bool CheckIfEffectIDQueued(int EffectID) const;
@@ -407,6 +409,9 @@ public:
 	// Called when the set of active tags changes.
 	UPROPERTY(BlueprintAssignable)
 	FOnActiveTagsChanged OnActiveTagsChanged;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnAbilityEnded OnAbilityEnded;
 
 	// Called when a synced event is executed
 	UPROPERTY(BlueprintAssignable)
@@ -752,16 +757,27 @@ public:
 	// Networked FX
 	// Is this ASC locally controlled?
 	bool IsLocallyControlledPawnASC() const;
-
-	// Spawn a Niagara system
+	
+	// Spawn a Niagara system attached to a component
 	// IsClientPredicted: If true, the system will be spawned on the client immediately. False, the local client will spawn it when the multicast is received
 	// bDelayByGMCSmoothing: If true, the system will be spawned with a delay for SimProxies to match the smoothing delay
 	UFUNCTION(BlueprintCallable, Category="GMAS|FX")
-	UNiagaraComponent* SpawnParticleSystem(FFXSystemSpawnParameters SpawnParams, bool bIsClientPredicted = false, bool bDelayByGMCSmoothing = false);
+	UNiagaraComponent* SpawnParticleSystemAttached(FFXSystemSpawnParameters SpawnParams, bool bIsClientPredicted = false, bool bDelayByGMCSmoothing = false);
 
 	UFUNCTION(NetMulticast, Unreliable)
-	void MC_SpawnParticleSystem(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted = false, bool bDelayByGMCSmoothing = false);
+	void MC_SpawnParticleSystemAttached(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted = false, bool bDelayByGMCSmoothing = false);
 
+		
+	// Spawn a Niagara system at a world location
+	// IsClientPredicted: If true, the system will be spawned on the client immediately. False, the local client will spawn it when the multicast is received
+	// bDelayByGMCSmoothing: If true, the system will be spawned with a delay for SimProxies to match the smoothing delay
+	UFUNCTION(BlueprintCallable, Category="GMAS|FX")
+	UNiagaraComponent* SpawnParticleSystemAtLocation(FFXSystemSpawnParameters SpawnParams, bool bIsClientPredicted = false, bool bDelayByGMCSmoothing = false);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MC_SpawnParticleSystemAtLocation(const FFXSystemSpawnParameters& SpawnParams, bool bIsClientPredicted = false, bool bDelayByGMCSmoothing = false);
+
+	
 	// Spawn a Sound at the given location
 	UFUNCTION(BlueprintCallable, Category="GMAS|FX")
 	void SpawnSound(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
