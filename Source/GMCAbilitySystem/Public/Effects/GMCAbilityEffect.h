@@ -10,6 +10,7 @@
 #include "GMCAbilityEffect.generated.h"
 
 class UGMC_AbilitySystemComponent;
+class UGMCEffectCalculation;
 
 UENUM(BlueprintType)
 enum class EGMASEffectType : uint8
@@ -184,6 +185,12 @@ struct FGMCAbilityEffectData
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem", meta = (DisplayName = "End Ability On End Via Definition Query"))
 	// end ability on effect end if definition matches query
 	FGameplayTagQuery EndAbilityOnEndQuery;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMAS|Effects|Calculation")
+	TSubclassOf<UGMCEffectCalculation> DurationCalculation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMAS|Effects|Calculation")
+	TSubclassOf<UGMCEffectCalculation> PeriodCalculation;
 
 };
 

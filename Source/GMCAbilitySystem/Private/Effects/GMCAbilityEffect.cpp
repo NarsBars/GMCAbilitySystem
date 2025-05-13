@@ -5,6 +5,7 @@
 
 #include "GMCAbilitySystem.h"
 #include "Components/GMCAbilityComponent.h"
+#include "Effects/GMCEffectCalculation.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 
@@ -54,6 +55,28 @@ void UGMCAbilityEffect::InitializeEffect(FGMCAbilityEffectData InitializationDat
 void UGMCAbilityEffect::StartEffect()
 {
 	bHasStarted = true;
+
+	// Apply Calculation Class Logic for Duration
+	if (EffectData.DurationCalculation)
+	{
+		UGMCEffectCalculation* DurationCalc = NewObject<UGMCEffectCalculation>(this, EffectData.DurationCalculation);
+		if (DurationCalc)
+		{
+			EffectData.Duration = DurationCalc->CalculateEffectValue(EffectData.Duration, OwnerAbilityComponent, SourceAbilityComponent);
+			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Effect %s Duration ReCalculated: %f"), *EffectData.EffectTag.ToString(), EffectData.Period);
+		}
+	}
+
+	// Apply Calculation Class Logic for Period
+	if (EffectData.PeriodCalculation)
+	{
+		UGMCEffectCalculation* PeriodCalc = NewObject<UGMCEffectCalculation>(this, EffectData.PeriodCalculation);
+		if (PeriodCalc)
+		{
+			EffectData.Period = PeriodCalc->CalculateEffectValue(EffectData.Period, OwnerAbilityComponent, SourceAbilityComponent);
+			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Effect %s Period ReCalculated: %f"), *EffectData.EffectTag.ToString(), EffectData.Period);
+		}
+	}
 
 	// Ensure tag requirements are met before applying the effect
 	if( ( EffectData.ApplicationMustHaveTags.Num() > 0 && !DoesOwnerHaveTagFromContainer(EffectData.ApplicationMustHaveTags) ) ||
@@ -238,7 +261,19 @@ void UGMCAbilityEffect::PeriodTick()
 		{
 			OwnerAbilityComponent->ApplyAbilityEffectModifier(AttributeModifier, true, false, SourceAbilityComponent);
 		}
+
+/* If we want to recalibrate period time as well, should add a bool plus turn into a function, but added quick to test
+		if (EffectData.PeriodCalculation)
+		{
+			UGMCEffectCalculation* PeriodCalc = NewObject<UGMCEffectCalculation>(this, EffectData.PeriodCalculation);
+			if (PeriodCalc)
+			{
+				EffectData.Period = PeriodCalc->CalculateEffectValue(EffectData.Period, OwnerAbilityComponent, SourceAbilityComponent);
+				UE_LOG(LogGMCAbilitySystem, Display, TEXT("Effect Period Calculated: %f"), EffectData.Period);
+			}
+		}*/
 	}
+	
 	PeriodTickEvent();
 }
 

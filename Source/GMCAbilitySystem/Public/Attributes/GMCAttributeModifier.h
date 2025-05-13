@@ -2,6 +2,8 @@
 #include "GameplayTags.h"
 #include "GMCAttributeModifier.generated.h"
 
+class UGMCEffectCalculation;
+
 UENUM(BlueprintType)
 enum class EModifierType : uint8
 {
@@ -24,6 +26,10 @@ struct FGMCAttributeModifier
 	// Value to modify the attribute by
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GMCAbilitySystem")
 	float Value{0};
+
+	// optional Calculation to modify the value by before application
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GMCAbilitySystem")
+	TSubclassOf<UGMCEffectCalculation> CustomCalculation;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GMCAbilitySystem")
 	EModifierType ModifierType{EModifierType::Add};

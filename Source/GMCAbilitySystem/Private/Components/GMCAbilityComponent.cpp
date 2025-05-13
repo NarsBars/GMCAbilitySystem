@@ -11,6 +11,7 @@
 #include "Ability/GMCAbilityMapData.h"
 #include "Attributes/GMCAttributesData.h"
 #include "Effects/GMCAbilityEffect.h"
+#include "Effects/GMCEffectCalculation.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -2210,6 +2211,17 @@ FString UGMC_AbilitySystemComponent::GetActiveAbilitiesString() const{
 
 void UGMC_AbilitySystemComponent::ApplyAbilityEffectModifier(FGMCAttributeModifier AttributeModifier, bool bModifyBaseValue, bool bNegateValue,  UGMC_AbilitySystemComponent* SourceAbilityComponent)
 {
+	if (AttributeModifier.CustomCalculation)
+	{
+		UGMCEffectCalculation* Calculation = NewObject<UGMCEffectCalculation>(this, AttributeModifier.CustomCalculation);
+		if (Calculation)
+		{
+			// get Calculation Class modified value
+			AttributeModifier.Value = Calculation->CalculateEffectValue(AttributeModifier.Value, this, SourceAbilityComponent);
+			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Attribute Modifier for %s Calculation Result: %f"), *AttributeModifier.AttributeTag.ToString(), AttributeModifier.Value);
+		}
+	}
+
 	// Provide an opportunity to modify the attribute modifier before applying it
 	UGMCAttributeModifierContainer* AttributeModifierContainer = NewObject<UGMCAttributeModifierContainer>(this);
 	AttributeModifierContainer->AttributeModifier = AttributeModifier;
