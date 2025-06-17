@@ -7,6 +7,7 @@
 #include "UObject/Object.h"
 #include "GMCAbilitySystem.h"
 #include "GMCAttributeModifier.h"
+#include "GMCDurationModifier.h"
 #include "GMCAbilityEffect.generated.h"
 
 class UGMC_AbilitySystemComponent;
@@ -97,6 +98,10 @@ struct FGMCAbilityEffectData
 	// Does nothing if effect is instant
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem", meta=(EditCondition = "EffectType == EGMASEffectType::Ticking || EffectType == EGMASEffectType::Persistent || EffectType == EGMASEffectType::Periodic", EditConditionHides))
 	double Duration = 0;
+
+	// Custom calculation for duration, does nothing if empty
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem", meta = (EditCondition = "EffectType == EGMASEffectType::Ticking || EffectType == EGMASEffectType::Persistent || EffectType == EGMASEffectType::Periodic", EditConditionHides))
+	TSubclassOf<UGMCDurationModifier> DurationModifier;
 	
 	// Time in seconds that the client has to apply itself an external effect before the server will force it. If this time is reach, a rollback is likely to happen.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GMCAbilitySystem", AdvancedDisplay)

@@ -63,6 +63,17 @@ void UGMCAbilityEffect::StartEffect()
 {
 	bHasStarted = true;
 
+	// Apply duration modifier
+	if (EffectData.DurationModifier)
+	{
+		UGMCDurationModifier* DurationModifier = NewObject<UGMCDurationModifier>(this, EffectData.DurationModifier);
+		if (DurationModifier)
+		{
+			EffectData.Duration = DurationModifier->CalculateValue(this, EffectData.Duration);
+			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Effect %s Duration ReCalculated: %f"), *EffectData.EffectTag.ToString(), EffectData.Duration);
+		}
+	}
+
 	// Ensure tag requirements are met before applying the effect
 	if( ( EffectData.ApplicationMustHaveTags.Num() > 0 && !DoesOwnerHaveTagFromContainer(EffectData.ApplicationMustHaveTags) ) ||
 	DoesOwnerHaveTagFromContainer(EffectData.ApplicationMustNotHaveTags) ||
