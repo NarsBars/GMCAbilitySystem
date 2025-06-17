@@ -74,6 +74,18 @@ void UGMCAbilityEffect::StartEffect()
 		}
 	}
 
+	// Apply periodic modifier
+	if (EffectData.PeriodicModifier)
+	{
+		UGMCDurationModifier* PeriodicModifier = NewObject<UGMCDurationModifier>(this, EffectData.PeriodicModifier);
+		if (PeriodicModifier)
+		{
+			EffectData.PeriodicInterval = PeriodicModifier->CalculateValue(this, EffectData.PeriodicInterval);
+			if (EffectData.PeriodicInterval < 0.1) EffectData.PeriodicInterval = 0.1;
+			UE_LOG(LogGMCAbilitySystem, Verbose, TEXT("Effect %s Period ReCalculated: %f"), *EffectData.EffectTag.ToString(), EffectData.PeriodicInterval);
+		}
+	}
+
 	// Ensure tag requirements are met before applying the effect
 	if( ( EffectData.ApplicationMustHaveTags.Num() > 0 && !DoesOwnerHaveTagFromContainer(EffectData.ApplicationMustHaveTags) ) ||
 	DoesOwnerHaveTagFromContainer(EffectData.ApplicationMustNotHaveTags) ||

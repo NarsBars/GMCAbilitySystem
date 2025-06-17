@@ -94,6 +94,10 @@ struct FGMCAbilityEffectData
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem" , meta=(EditCondition = "EffectType == EGMASEffectType::Periodic", EditConditionHides, ClampMin = "0.1", UIMin = "0.1"))
 	float PeriodicInterval = 1.f;
 
+	// Custom calculation for period, does nothing if empty
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem", meta = (EditCondition = "EffectType == EGMASEffectType::Periodic", EditConditionHides))
+	TSubclassOf<UGMCDurationModifier> PeriodicModifier;
+
 	// How long the effect lasts, 0 for infinite
 	// Does nothing if effect is instant
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem", meta=(EditCondition = "EffectType == EGMASEffectType::Ticking || EffectType == EGMASEffectType::Persistent || EffectType == EGMASEffectType::Periodic", EditConditionHides))
