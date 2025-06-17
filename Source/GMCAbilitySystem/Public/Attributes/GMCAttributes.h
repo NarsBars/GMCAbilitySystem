@@ -7,6 +7,41 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FAttributeChanged, float, OldValue, float, NewValue);
 
+
+
+USTRUCT()
+struct FModifierHistoryEntry
+{
+	GENERATED_BODY()
+
+	TWeakObjectPtr<UGMCAbilityEffect> InstigatorEffect;
+	
+	float ActionTimer = 0.f;
+
+	float Value = 0.f;
+};
+
+USTRUCT(Blueprintable)
+struct FAttributeTemporaryModifier
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	// Index used to identify the application of this modifier
+	int ApplicationIndex = 0;
+
+	UPROPERTY()
+	// The value that we would like to apply
+	float Value = 0.f;
+
+	UPROPERTY()
+	double ActionTimer = 0.0;
+
+	// The effect that applied this modifier
+	UPROPERTY()
+	TWeakObjectPtr<UGMCAbilityEffect> InstigatorEffect = nullptr;
+};
+
 USTRUCT(BlueprintType)
 struct GMCABILITYSYSTEM_API FAttribute : public FFastArraySerializerItem
 {
@@ -15,95 +50,37 @@ struct GMCABILITYSYSTEM_API FAttribute : public FFastArraySerializerItem
 
 	void Init() const
 	{
-		CalculateValue(false);
+		RawValue = Clamp.ClampValue(InitialValue);
+		CalculateValue();
 	}
+
+	
+	void AddModifier(const FGMCAttributeModifier& PendingModifier) const;
+
+	// Return true if the attribute has been modified
+	void CalculateValue() const;
+
+	void RemoveTemporalModifier(int ApplicationIndex, const UGMCAbilityEffect* InstigatorEffect) const;
+
+	// Used to purge "future modifiers" during replay
+	void PurgeTemporalModifier(double CurrentActionTimer);
+	
 
 	UPROPERTY(BlueprintAssignable)
 	FAttributeChanged OnAttributeChanged;
 
-	UPROPERTY()
-	mutable float AdditiveModifier{0};
-	
-	UPROPERTY()
-	mutable float MultiplyModifier{1};
-
-	UPROPERTY()
-	mutable float DivisionModifier{1};
-
-	void ApplyModifier(const FGMCAttributeModifier& Modifier, bool bModifyBaseValue) const
-	{
-		switch(Modifier.ModifierType)
-		{
-		case EModifierType::Add:
-			if (bModifyBaseValue)
-			{
-				BaseValue += Modifier.Value;
-				BaseValue = Clamp.ClampValue(BaseValue);
-			}
-			else
-			{
-				AdditiveModifier += Modifier.Value;
-			}
-			break;
-		case EModifierType::Multiply:
-			MultiplyModifier += Modifier.Value;
-			break;
-		case EModifierType::Divide:
-			DivisionModifier += Modifier.Value;
-			break;
-		default:
-			break;
-		}
-		
-		CalculateValue();
-		
-	}
-
-	void CalculateValue(bool bClamp = true) const
-	{
-		// Prevent divide by 0 and negative divisors
-		float LocalDivisionModifier = DivisionModifier;
-		if (LocalDivisionModifier <= 0){
-			LocalDivisionModifier = 1;
-		}
-
-		// Prevent negative multipliers
-		float LocalMultiplyModifier = MultiplyModifier;
-		if (LocalMultiplyModifier < 0){
-			LocalMultiplyModifier = 0;
-		}
-		
-		Value =((BaseValue + AdditiveModifier) * LocalMultiplyModifier) / LocalDivisionModifier;
-		if (bClamp)
-		{
-			Value = Clamp.ClampValue(Value);
-		}
-	}
-
-	// Reset the modifiers to the base value. May cause jank if there's effects going on.
-	void ResetModifiers() const
-	{
-		MultiplyModifier = 1;
-		DivisionModifier = 1;
-	}
-
-	// Allow for externally directly setting the BaseValue
-	// Usually preferred to go through Effects/Modifiers instead of this
-	void SetBaseValue(const float NewValue) const
-	{
-		BaseValue = Clamp.ClampValue(NewValue);
-	}
-	
+	// Temporal Modifier + Accumulated Value
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem")
 	mutable float Value{0};
 
+	// Value when the attribute has been initialized
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GMCAbilitySystem")
-	mutable float BaseValue{0};
+	mutable float InitialValue{0};
 
 	// Attribute.* 
 	UPROPERTY(EditDefaultsOnly, Category="Attribute", meta = (Categories="Attribute"))
 	FGameplayTag Tag{FGameplayTag::EmptyTag};
-
+	
 	// Whether this should be bound over GMC or not.
 	// NOTE: If you don't bind it, you can't use it for any kind of prediction.
 	UPROPERTY(EditDefaultsOnly, Category = "GMCAbilitySystem")
@@ -111,18 +88,32 @@ struct GMCABILITYSYSTEM_API FAttribute : public FFastArraySerializerItem
 
 	// Clamp the attribute to a certain range
 	// Clamping will only happen if this is modified
-	UPROPERTY(EditDefaultsOnly, Category = "GMCAbilitySystem")
+	UPROPERTY(EditDefaultsOnly, Category = "GMCAbilitySystem", meta=(TitleProperty="({min}, {max} {MinAttributeTag}, {MaxAttributeTag})"))
 	FAttributeClamp Clamp{};
 
-	FString ToString() const{
-		return FString::Printf(TEXT("%s : %f (Bound: %d)"), *Tag.ToString(), Value, bIsGMCBound);
+	FString ToString() const;
+
+	bool IsDirty() const
+	{
+		return bIsDirty;
 	}
 
-	bool operator < (const FAttribute& Other) const
-	{
-		return Tag.ToString() < Other.Tag.ToString();
-	}
+	bool operator< (const FAttribute& Other) const;
+
+	// This is the sum of permanent modification applied to this attribute.
+	UPROPERTY()
+	mutable float RawValue = 0.f;
+
+protected:
+
+		UPROPERTY()
+		mutable TArray<FAttributeTemporaryModifier> ValueTemporalModifiers;
+
+		mutable bool bIsDirty = false;
+	
 };
+
+
 
 USTRUCT(BlueprintType)
 struct GMCABILITYSYSTEM_API FGMCAttributeSet{
@@ -175,10 +166,11 @@ struct FGMCUnboundAttributeSet : public FFastArraySerializer
 		}
 	}
 
+	
+
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParams)
 	{
-		return FFastArraySerializer::FastArrayDeltaSerialize<FAttribute, FGMCUnboundAttributeSet>(Items, DeltaParams,
-			*this);
+		return FFastArraySerializer::FastArrayDeltaSerialize<FAttribute, FGMCUnboundAttributeSet>(Items, DeltaParams,*this);
 	}
 };
 
@@ -187,6 +179,6 @@ struct TStructOpsTypeTraits<FGMCUnboundAttributeSet> : public TStructOpsTypeTrai
 {
 	enum
 	{
-		WithNetDeltaSerializer = true
+		WithNetDeltaSerializer = true,
 	};
 };

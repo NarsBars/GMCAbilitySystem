@@ -7,6 +7,8 @@
 class UGMC_AbilitySystemComponent;
 class UGameplayTasksComponent;
 
+
+
 UCLASS(Abstract, BlueprintType, meta = (ExposedAsyncProxy=AsyncTask), config = Game)
 class GMCABILITYSYSTEM_API UGMCAbilityTaskBase : public UGameplayTask
 {
@@ -66,7 +68,6 @@ public:
 	
 	virtual void Heartbeat();
 
-
 protected:
 	bool bTaskCompleted;
 
@@ -81,7 +82,8 @@ private:
 	float HeartbeatInterval = .1f;
 
 	// Max time between heartbeats before server cancels task
-	float HeartbeatMaxInterval =.3f;
+	// Aherys: previous value was 0.3f it's maybe a bit too low for harsh network conditions
+	float HeartbeatMaxInterval =1.5f;
 	
 	float ClientLastHeartbeatSentTime;
 	float LastHeartbeatReceivedTime;
