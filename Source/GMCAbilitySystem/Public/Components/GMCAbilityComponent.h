@@ -1,4 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -11,6 +10,7 @@
 #include "Ability/Tasks/GMCAbilityTaskData.h"
 #include "Effects/GMCAbilityEffect.h"
 #include "Components/ActorComponent.h"
+#include "Containers/Deque.h"
 #include "Utility/GMASBoundQueue.h"
 #include "Utility/GMASSyncedEvent.h"
 #include "GMCAbilityComponent.generated.h"
@@ -39,6 +39,8 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FGameplayTagFilteredMulticastDelegate, cons
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEffectApplied, UGMCAbilityEffect*, AppliedEffect);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEffectRemoved, UGMCAbilityEffect*, RemovedEffect);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTaskTimeout, FGameplayTag, TaskTag);
 
 USTRUCT()
 struct FEffectStatePrediction
@@ -93,6 +95,17 @@ enum class EGMCAbilityEffectQueueType : uint8
 	ServerAuthMove UMETA(Hidden, DisplayName="ADVANCED: Server Auth [Movement Cycle]")
 };
 
+UENUM(BlueprintType)
+enum class EGMCEffectAnswerState : uint8
+{
+	// Effect is not answered yet
+	Pending UMETA(DisplayName="Pending"),
+	// Effect reach out of prediction windows, was cancelled but can be re-applied
+	Timeout UMETA(DisplayName="Timeout"),
+	// Effect was answered and applied
+	Validated UMETA(DisplayName="Accepted")
+};
+
 class UGMCAbility;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent, DisplayName="GMC Ability System Component"), meta=(Categories="GMAS"))
@@ -125,6 +138,8 @@ public:
 
 	// Return the active ability effects
 	TMap<int, UGMCAbilityEffect*> GetActiveEffects() const { return ActiveEffects; }
+
+	UGMCAbilityEffect* GetActiveEffectByHandle(int EffectID) const;
 
 	// Return active Effect with tag
 	// Match exact doesn't look for depth in the tag, it will only match the exact tag
@@ -202,10 +217,19 @@ public:
 	
 	// Do not call directly on client, go through QueueAbility. Can be used to call server-side abilities (like AI).
 	bool TryActivateAbility(TSubclassOf<UGMCAbility> ActivatedAbility, const UInputAction* InputAction = nullptr, const FGameplayTag ActivationTag = FGameplayTag::EmptyTag);
-	
-	// Queue an ability to be executed
+
+
+	/**
+	 * Queue an ability for activation based on the provided input tag and action.
+	 *
+	 * @param InputTag              The gameplay tag associated with the ability to queue.
+	 * @param InputAction           The input action triggering the ability.
+	 * @param bPreventConcurrentActivation If true, prevents the concurrent activation of abilities already in progress. The check is made locally
+	 * 							   reducing server charge, but also required in case of activation key wait inside the ability.
+	 */
 	UFUNCTION(BlueprintCallable, DisplayName="Activate Ability", Category="GMAS|Abilities")
-	void QueueAbility(UPARAM(meta=(Categories="Input"))FGameplayTag InputTag, const UInputAction* InputAction = nullptr);
+	void QueueAbility(UPARAM(meta=(Categories="Input"))
+	                  FGameplayTag InputTag, const UInputAction* InputAction = nullptr, bool bPreventConcurrentActivation = false);
 
 	UFUNCTION(BlueprintCallable, DisplayName="Count Queued Ability Instances", Category="GMAS|Abilities")
 	int32 GetQueuedAbilityCount(FGameplayTag AbilityTag);
@@ -303,15 +327,23 @@ public:
 	 * Applies an effect to the ability component. If the Queue Type is Predicted, the effect will be immediately added
 	 * on both client and server; this must happen within the GMC movement lifecycle for it to be valid. If the
 	 * Queue Type is anything else, the effect must be queued on the server and will be replicated to the client.
+	 * @param HandlingAbility : Optional ability handling, if provided, the end ability will trigger also automatically the end of the effect.
 	 */
 	UFUNCTION(BlueprintCallable, Category="GMAS|Effects", DisplayName="Apply Ability Effect")
 	void ApplyAbilityEffectSafe(TSubclassOf<UGMCAbilityEffect> EffectClass, FGMCAbilityEffectData InitializationData, EGMCAbilityEffectQueueType QueueType,
-		UPARAM(DisplayName="Success") bool& OutSuccess, UPARAM(DisplayName="Effect Handle") int& OutEffectHandle, UPARAM(DisplayName="Effect Network ID") int& OutEffectId, UPARAM(DisplayName="Effect Instance") UGMCAbilityEffect*& OutEffect);
+		UPARAM(DisplayName="Success")
+		bool& OutSuccess,
+		UPARAM(DisplayName="Effect Handle") int& OutEffectHandle,
+		UPARAM(DisplayName="Effect Network ID") int& OutEffectId,
+		UPARAM(DisplayName="Effect Instance") UGMCAbilityEffect*& OutEffect,
+		UPARAM(DisplayName="(Opt) Ability Handling") UGMCAbility* HandlingAbility = nullptr);
 
 	/** Short version of ApplyAbilityEffect (Fire and Forget, return nullptr if fail, or the effect instance if success)
 	 * Don't suggest it for BP user to avoid confusion.
+	 *  @param HandlingAbility : Optional ability handling, if provided, the end ability will trigger al
 	 */
-	UGMCAbilityEffect* ApplyAbilityEffectShort(TSubclassOf<UGMCAbilityEffect> EffectClass, EGMCAbilityEffectQueueType QueueType);
+	UGMCAbilityEffect* ApplyAbilityEffectShort(TSubclassOf<UGMCAbilityEffect> EffectClass, EGMCAbilityEffectQueueType QueueType, 
+		UPARAM(DisplayName="(Opt) Ability Handling") UGMCAbility* HandlingAbility = nullptr);
 
 	/**
 	 * Applies an effect to the ability component. If the Queue Type is Predicted, the effect will be immediately added
@@ -346,6 +378,9 @@ public:
 	// doing this from outside of the component, to allow queuing and sanity-check.
 	UFUNCTION(BlueprintCallable, Category="GMAS|Effects")
 	void RemoveActiveAbilityEffect(UGMCAbilityEffect* Effect);
+
+	UFUNCTION(BlueprintCallable, Category="GMAS|Effects")
+	void RemoveActiveAbilityEffectByHandle(int EffectHandle, EGMCAbilityEffectQueueType QueueType = EGMCAbilityEffectQueueType::Predicted);
 
 	UFUNCTION(BlueprintCallable, Category="GMAS|Effects", DisplayName="Remove Active Ability Effect (Safe)")
 	void RemoveActiveAbilityEffectSafe(UGMCAbilityEffect* Effect, EGMCAbilityEffectQueueType QueueType = EGMCAbilityEffectQueueType::Predicted);
@@ -406,6 +441,11 @@ public:
 	// Called during the Ancillary Tick
 	UPROPERTY(BlueprintAssignable)
 	FOnAncillaryTick OnAncillaryTick;
+
+	// Called when a task times out
+	UPROPERTY(BlueprintAssignable)
+	FOnTaskTimeout OnTaskTimeout;
+	
 	////
 
 	// Called when the set of active tags changes.
@@ -435,13 +475,17 @@ public:
 	TArray<const FAttribute*> GetAllAttributes() const;
 
 	/** Get an Attribute using its Tag */
-	const FAttribute* GetAttributeByTag(FGameplayTag AttributeTag) const;
+	const FAttribute* GetAttributeByTag(UPARAM(meta=(Categories="Attribute")) FGameplayTag AttributeTag) const;
 
 	TMap<int, UGMCAbility*> GetActiveAbilities() const { return ActiveAbilities; }
 
-	// Get Attribute value by Tag
+	// Get Attribute value (RawValue + Temporal Modifiers) by Tag
 	UFUNCTION(BlueprintPure, Category="GMAS|Attributes")
 	float GetAttributeValueByTag(UPARAM(meta=(Categories="Attribute"))FGameplayTag AttributeTag) const;
+
+	// Get Attribute Value without Temporal Modifiers
+	UFUNCTION(BlueprintPure, Category="GMAS|Attributes")
+	float GetAttributeRawValue(UPARAM(meta=(Categories="Attribute"))FGameplayTag AttributeTag) const;
 
 	// Get Attribute value by Tag
 	UFUNCTION(BlueprintPure, Category="GMAS|Attributes")
@@ -450,16 +494,16 @@ public:
 	// Set Attribute value by Tag
 	// Will NOT trigger an "OnAttributeChanged" Event
 	// bResetModifiers: Will reset all modifiers on the attribute to the base value. DO NOT USE if you have any active effects that modify this attribute.
-	UFUNCTION(BlueprintCallable, Category="GMAS|Attributes")
+	UFUNCTION(BlueprintCallable, Category="GMAS|Attributes", meta=(DeprecatedFunction, DeprecationMessage="Please use ApplyAbilityAttributeModifier instead."))
 	bool SetAttributeValueByTag(UPARAM(meta=(Categories="Attribute"))FGameplayTag AttributeTag, float NewValue, bool bResetModifiers = false);
 	
 	/** Get the default value of an attribute from the data assets. */
 	UFUNCTION(BlueprintCallable, Category="GMAS|Attributes")
-	float GetBaseAttributeValueByTag(UPARAM(meta=(Categories="Attribute"))FGameplayTag AttributeTag) const;
+	float GetAttributeInitialValueByTag(UPARAM(meta=(Categories="Attribute"))FGameplayTag AttributeTag) const;
 	
 	// Apply modifiers that affect attributes
 	UFUNCTION(BlueprintCallable, Category="GMAS|Attributes")
-	void ApplyAbilityEffectModifier(FGMCAttributeModifier AttributeModifier,bool bModifyBaseValue, bool bNegateValue = false, UGMC_AbilitySystemComponent* SourceAbilityComponent = nullptr);
+	void ApplyAbilityAttributeModifier(const FGMCAttributeModifier& AttributeModifier);
 
 	UPROPERTY(BlueprintReadWrite, Category = "GMCAbilitySystem")
 	bool bJustTeleported;
@@ -586,14 +630,24 @@ private:
 
 public:
 	// Empty the AbilityMap and remove all granted abilities from existing maps
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category="GMAS|Abilities")
 	void ClearAbilityMap();
+
+	virtual void SetAttributeInitialValue(const FGameplayTag& AttributeTag, float& BaseValue);
+
+	UFUNCTION(BlueprintImplementableEvent, Category="GMAS|Abilities")
+	void OnInitializeAttributeInitialValue(const FGameplayTag& AttributeTag, float& BaseValue);
 
 private:
 	// List of filtered tag delegates to call when tags change.
 	TArray<TPair<FGameplayTagContainer, FGameplayTagFilteredMulticastDelegate>> FilteredTagDelegates;
 
 	FGameplayAttributeChangedNative NativeAttributeChangeDelegate;
+
+	// Will calculate and process stack of attributes
+	void ProcessAttributes(bool bInGenPredictionTick);
+	
+	TArray<FModifierHistoryEntry> ModifierHistory;
 	
 	// Get the map from the data asset and apply that to the component's map
 	void InitializeAbilityMap();
@@ -666,6 +720,8 @@ private:
 	// This must run before variable binding
 	void InstantiateAttributes();
 
+	
+
 	void SetStartingTags();
 
 	// Check if ActiveTags has changed and call delegates
@@ -681,6 +737,7 @@ private:
 
 	// Tick Predicted and Active Effects
 	void TickActiveEffects(float DeltaTime);
+
 
 	// Tick active abilities, primarily the Tasks inside them
 	void TickActiveAbilities(float DeltaTime);
@@ -740,7 +797,7 @@ private:
 	// This need to be persisted for a while
 	// This never empties out so it'll infinitely grow, probably a better way to accomplish this
 	UPROPERTY()
-	TMap<int /*ID*/, bool /*bServerConfirmed*/> ProcessedEffectIDs;
+	TMap<int /*ID*/, EGMCEffectAnswerState /*bServerConfirmed*/> ProcessedEffectIDs;
 
 	// Let the client know that the server has activated this ability as well
 	// Needed for the client to cancel mis-predicted abilities
@@ -793,5 +850,5 @@ public:
 	UFUNCTION(NetMulticast, Unreliable)
 	void MC_SpawnSound(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, bool bIsClientPredicted = false);
 
-	
+	friend class FGameplayDebuggerCategory_GMCAbilitySystem;
 };
