@@ -30,11 +30,18 @@ public class GMCAbilitySystem : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore",
+				"SlateCore", "Niagara"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
 		
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] {
+				"AutomationController",
+				"AutomationWorker"
+			});
+		}
 		
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]

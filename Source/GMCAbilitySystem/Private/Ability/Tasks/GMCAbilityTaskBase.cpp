@@ -30,11 +30,16 @@ void UGMCAbilityTaskBase::RegisterTask(UGMCAbilityTaskBase* Task)
 
 void UGMCAbilityTaskBase::Tick(float DeltaTime)
 {
+
+}
+
+void UGMCAbilityTaskBase::AncillaryTick(float DeltaTime){
 	// Locally controlled server pawns don't need to send heartbeats
 	if (AbilitySystemComponent->GMCMovementComponent->IsLocallyControlledServerPawn()) return;
 	
 	// If not the server version of the component, send heartbeats
-	if (AbilitySystemComponent->GetNetMode() != NM_DedicatedServer)
+	if (AbilitySystemComponent->GetNetMode() != NM_DedicatedServer &&
+		AbilitySystemComponent->GetNetMode() != NM_ListenServer)
 	{
 		if (ClientLastHeartbeatSentTime + HeartbeatInterval < AbilitySystemComponent->ActionTimer)
 		{
@@ -45,14 +50,10 @@ void UGMCAbilityTaskBase::Tick(float DeltaTime)
 	else if (LastHeartbeatReceivedTime + HeartbeatMaxInterval < AbilitySystemComponent->ActionTimer)
 	{
 		UE_LOG(LogGMCReplication, Error, TEXT("Server Task Heartbeat Timeout, Cancelling Ability: %s"), *Ability->GetName());
+		AbilitySystemComponent->OnTaskTimeout.Broadcast(Ability->AbilityTag);
 		Ability->EndAbility();
 		EndTask();
 	}
-
-}
-
-void UGMCAbilityTaskBase::AncillaryTick(float DeltaTime){
-	
 }
 
 void UGMCAbilityTaskBase::ClientProgressTask()
@@ -63,4 +64,18 @@ void UGMCAbilityTaskBase::ClientProgressTask()
 	TaskData.TaskID = TaskID;
 	const FInstancedStruct TaskDataInstance = FInstancedStruct::Make(TaskData);
 	Ability->OwnerAbilityComponent->QueueTaskData(TaskDataInstance);
+}
+
+void UGMCAbilityTaskBase::Heartbeat()
+{
+	AbilitySystemComponent->GMCMovementComponent->SV_SwapServerState();
+	LastHeartbeatReceivedTime = AbilitySystemComponent->ActionTimer;
+	AbilitySystemComponent->GMCMovementComponent->SV_SwapServerState();
+}
+
+bool UGMCAbilityTaskBase::IsClientOrRemoteListenServerPawn() const
+{
+	return (AbilitySystemComponent->GetNetMode() != NM_DedicatedServer &&
+		AbilitySystemComponent->GetNetMode() != NM_ListenServer) ||
+		AbilitySystemComponent->GMCMovementComponent->IsLocallyControlledServerPawn();
 }
